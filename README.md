@@ -31,16 +31,25 @@ golang-fbom-generator -package . -cve cve-data.json
 
 # Verbose output
 golang-fbom-generator -package . -v
+
+# Generate FBOM for external dependency
+golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+
+# Generate FBOM for standard library package
+golang-fbom-generator -generate-fbom fmt
 ```
 
 ### Command Line Options
 
 - `-package`: Go package path to analyze (default: ".")
+- `-generate-fbom`: Generate FBOM for specified package (format: `package[@version]`)
 - `-cve`: Path to CVE data file (JSON) - optional
 - `-v`: Verbose output
 - `-entry-points`: Comma-separated list of additional entry point patterns
 - `-algo`: Call graph algorithm to use: `rta`, `cha`, `static`, `vta` (default: "rta")
 - `-version`: Show version information
+
+**Note**: The `-package` and `-generate-fbom` flags are mutually exclusive.
 
 ## Output Format
 
@@ -72,6 +81,38 @@ The tool generates JSON documents following the **Function Bill of Materials (FB
 - **[FBOM Specification](FBOM_SPECIFICATION.md)**: Complete specification for the FBOM format
 - **[Contributing Guide](CONTRIBUTING.md)**: Guidelines for contributors
 - **[Integration Tests](tests/integration/README.md)**: Information about the test suite
+
+## FBOM Cache
+
+The tool supports generating and caching FBOMs for individual packages:
+
+### Cache Structure
+
+```
+./fboms/
+├── external/
+│   └── github-com-gin-gonic-gin@v1.9.1.fbom.json
+└── stdlib/
+    ├── go1.21.0/
+    │   └── fmt.fbom.json
+    └── go1.22.0/
+        └── net-http.fbom.json
+```
+
+### Generating Dependency FBOMs
+
+```bash
+# Generate FBOM for external package with specific version
+golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+
+# Generate FBOM for external package (latest version auto-resolved)
+golang-fbom-generator -generate-fbom github.com/sirupsen/logrus
+
+# Generate FBOM for standard library package
+golang-fbom-generator -generate-fbom net/http
+```
+
+Generated FBOMs are saved to the local `./fboms/` directory for reuse and reference.
 
 ## Configuration
 
