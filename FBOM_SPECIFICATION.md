@@ -209,6 +209,43 @@ The `purl_identifier` field contains a Package URL that uniquely identifies the 
 }
 ```
 
+#### FBOM Cache Linking
+
+The generator automatically links to cached FBOMs when available, providing enhanced metadata and validation:
+
+**Cache Hit Behavior:**
+- `fbom_location`: Absolute path to cached FBOM file
+- `resolution_type`: `"cached_external"` or `"cached_stdlib"`
+- `checksum_sha256`: SHA256 hash of cached file content
+- `last_verified`: Timestamp when cache validation occurred
+
+**Cache Miss Behavior:**
+- `fbom_location`: Placeholder path where FBOM could be generated
+- `resolution_type`: `"file"` (indicates placeholder)
+- Missing optional fields (`checksum_sha256`, `last_verified`)
+
+**Cache Structure:**
+```
+./fboms/
+├── external/
+│   └── github-com-gin-gonic-gin@v1.9.1.fbom.json
+└── stdlib/
+    └── go1.21.0/
+        └── fmt.fbom.json
+```
+
+**Cache Miss Reporting:**
+In verbose mode (`-v`), the generator reports missing FBOMs with suggested generation commands:
+
+```
+📋 Cache Miss Report: 2 missing FBOMs
+==================================================
+📦 github.com/gin-gonic/gin@v1.9.1
+   💡 golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+📦 fmt
+   💡 golang-fbom-generator -generate-fbom fmt
+```
+
 ### 4. Entry Points Array
 
 #### `entry_points` (array, required)

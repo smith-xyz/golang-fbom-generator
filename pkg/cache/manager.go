@@ -18,11 +18,17 @@ type CacheStructure struct {
 // DetectCacheStructure scans the current directory for FBOM cache structure
 func DetectCacheStructure() *CacheStructure {
 	basePath := filepath.Join(".", "fboms")
-	externalPath := filepath.Join(basePath, "external")
-	stdlibBasePath := filepath.Join(basePath, "stdlib")
+	// Convert to absolute path for consistency
+	absBasePath, err := filepath.Abs(basePath)
+	if err != nil {
+		absBasePath = basePath // Fallback to relative
+	}
+
+	externalPath := filepath.Join(absBasePath, "external")
+	stdlibBasePath := filepath.Join(absBasePath, "stdlib")
 
 	structure := &CacheStructure{
-		BasePath:     basePath,
+		BasePath:     absBasePath,
 		ExternalPath: externalPath,
 		StdlibPaths:  make(map[string]string),
 		Exists:       false,
@@ -62,6 +68,13 @@ func LookupExternalFBOM(packageName, version string) (path string, exists bool) 
 	externalPath := filepath.Join(".", "fboms", "external")
 	fbomPath := filepath.Join(externalPath, filename)
 
+	// Convert to absolute path for consistency
+	absFBOMPath, err := filepath.Abs(fbomPath)
+	if err != nil {
+		return fbomPath, false // Fallback to relative
+	}
+	fbomPath = absFBOMPath
+
 	// Check if file exists
 	if _, err := os.Stat(fbomPath); err == nil {
 		return fbomPath, true
@@ -78,6 +91,13 @@ func LookupStdlibFBOM(packageName, goVersion string) (path string, exists bool) 
 
 	stdlibPath := filepath.Join(".", "fboms", "stdlib", goVersion)
 	fbomPath := filepath.Join(stdlibPath, filename)
+
+	// Convert to absolute path for consistency
+	absFBOMPath, err := filepath.Abs(fbomPath)
+	if err != nil {
+		return fbomPath, false // Fallback to relative
+	}
+	fbomPath = absFBOMPath
 
 	// Check if file exists
 	if _, err := os.Stat(fbomPath); err == nil {

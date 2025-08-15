@@ -32,7 +32,7 @@ func TestDetectCacheStructure(t *testing.T) {
 			t.Error("Expected no cache structure to exist")
 		}
 
-		expectedBasePath := filepath.Join(".", "fboms")
+		expectedBasePath, _ := filepath.Abs(filepath.Join(".", "fboms"))
 		if structure.BasePath != expectedBasePath {
 			t.Errorf("Expected base path '%s', got '%s'", expectedBasePath, structure.BasePath)
 		}
@@ -51,7 +51,7 @@ func TestDetectCacheStructure(t *testing.T) {
 			t.Error("Expected cache structure to exist")
 		}
 
-		expectedExternalPath := filepath.Join(".", "fboms", "external")
+		expectedExternalPath, _ := filepath.Abs(filepath.Join(".", "fboms", "external"))
 		if structure.ExternalPath != expectedExternalPath {
 			t.Errorf("Expected external path '%s', got '%s'", expectedExternalPath, structure.ExternalPath)
 		}
@@ -82,12 +82,12 @@ func TestDetectCacheStructure(t *testing.T) {
 			t.Errorf("Expected 2 stdlib paths, got %d", len(structure.StdlibPaths))
 		}
 
-		expectedPath1 := filepath.Join(".", "fboms", "stdlib", "go1.21.0")
+		expectedPath1, _ := filepath.Abs(filepath.Join(".", "fboms", "stdlib", "go1.21.0"))
 		if structure.StdlibPaths["go1.21.0"] != expectedPath1 {
 			t.Errorf("Expected stdlib path '%s', got '%s'", expectedPath1, structure.StdlibPaths["go1.21.0"])
 		}
 
-		expectedPath2 := filepath.Join(".", "fboms", "stdlib", "go1.20.0")
+		expectedPath2, _ := filepath.Abs(filepath.Join(".", "fboms", "stdlib", "go1.20.0"))
 		if structure.StdlibPaths["go1.20.0"] != expectedPath2 {
 			t.Errorf("Expected stdlib path '%s', got '%s'", expectedPath2, structure.StdlibPaths["go1.20.0"])
 		}
@@ -133,7 +133,7 @@ func TestLookupExternalFBOM(t *testing.T) {
 			t.Error("Expected FBOM to exist")
 		}
 
-		expectedPath := filepath.Join(".", "fboms", "external", "github-com-gin-gonic-gin@v1.9.1.fbom.json")
+		expectedPath, _ := filepath.Abs(filepath.Join(".", "fboms", "external", "github-com-gin-gonic-gin@v1.9.1.fbom.json"))
 		if path != expectedPath {
 			t.Errorf("Expected path '%s', got '%s'", expectedPath, path)
 		}
@@ -146,7 +146,7 @@ func TestLookupExternalFBOM(t *testing.T) {
 			t.Error("Expected FBOM not to exist")
 		}
 
-		expectedPath := filepath.Join(".", "fboms", "external", "github-com-unknown-package@v1.0.0.fbom.json")
+		expectedPath, _ := filepath.Abs(filepath.Join(".", "fboms", "external", "github-com-unknown-package@v1.0.0.fbom.json"))
 		if path != expectedPath {
 			t.Errorf("Expected path '%s', got '%s'", expectedPath, path)
 		}
@@ -192,7 +192,7 @@ func TestLookupStdlibFBOM(t *testing.T) {
 			t.Error("Expected stdlib FBOM to exist")
 		}
 
-		expectedPath := filepath.Join(".", "fboms", "stdlib", "go1.21.0", "fmt.fbom.json")
+		expectedPath, _ := filepath.Abs(filepath.Join(".", "fboms", "stdlib", "go1.21.0", "fmt.fbom.json"))
 		if path != expectedPath {
 			t.Errorf("Expected path '%s', got '%s'", expectedPath, path)
 		}
@@ -205,7 +205,7 @@ func TestLookupStdlibFBOM(t *testing.T) {
 			t.Error("Expected stdlib FBOM not to exist")
 		}
 
-		expectedPath := filepath.Join(".", "fboms", "stdlib", "go1.21.0", "unknown.fbom.json")
+		expectedPath, _ := filepath.Abs(filepath.Join(".", "fboms", "stdlib", "go1.21.0", "unknown.fbom.json"))
 		if path != expectedPath {
 			t.Errorf("Expected path '%s', got '%s'", expectedPath, path)
 		}
@@ -218,7 +218,7 @@ func TestLookupStdlibFBOM(t *testing.T) {
 			t.Error("Expected stdlib FBOM not to exist for different Go version")
 		}
 
-		expectedPath := filepath.Join(".", "fboms", "stdlib", "go1.20.0", "fmt.fbom.json")
+		expectedPath, _ := filepath.Abs(filepath.Join(".", "fboms", "stdlib", "go1.20.0", "fmt.fbom.json"))
 		if path != expectedPath {
 			t.Errorf("Expected path '%s', got '%s'", expectedPath, path)
 		}

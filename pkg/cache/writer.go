@@ -26,11 +26,23 @@ func WriteFBOMToCache(fbom interface{}, cacheType, packageName, version string) 
 	case "external":
 		safeName := SanitizePackageName(packageName)
 		filename := fmt.Sprintf("%s@%s.fbom.json", safeName, version)
-		targetPath = filepath.Join(".", "fboms", "external", filename)
+		relativePath := filepath.Join(".", "fboms", "external", filename)
+		absPath, err := filepath.Abs(relativePath)
+		if err != nil {
+			targetPath = relativePath // Fallback to relative
+		} else {
+			targetPath = absPath
+		}
 	case "stdlib":
 		safeName := SanitizePackageName(packageName)
 		filename := fmt.Sprintf("%s.fbom.json", safeName)
-		targetPath = filepath.Join(".", "fboms", "stdlib", version, filename)
+		relativePath := filepath.Join(".", "fboms", "stdlib", version, filename)
+		absPath, err := filepath.Abs(relativePath)
+		if err != nil {
+			targetPath = relativePath // Fallback to relative
+		} else {
+			targetPath = absPath
+		}
 	default:
 		return fmt.Errorf("unsupported cache type: %s", cacheType)
 	}

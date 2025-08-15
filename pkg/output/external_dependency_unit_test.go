@@ -1,6 +1,7 @@
 package output
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -63,7 +64,7 @@ func TestExternalDependencyDataStructures(t *testing.T) {
 		PackageManager: "go",
 		UsedFunctions:  2,
 		FBOMReference: &ExternalFBOMReference{
-			FBOMLocation:   "./fboms/github-com-gin-gonic-gin.fbom.json",
+			FBOMLocation:   func() string { abs, _ := filepath.Abs("./fboms/github-com-gin-gonic-gin.fbom.json"); return abs }(),
 			FBOMVersion:    "0.1.0",
 			ResolutionType: "file",
 			SPDXDocumentId: "SPDXRef-Document-gin",
@@ -168,11 +169,11 @@ func TestExternalCallTrackingHelperFunctions(t *testing.T) {
 	}{
 		{
 			packageName:      "github.com/gin-gonic/gin",
-			expectedLocation: "./fboms/github-com-gin-gonic-gin.fbom.json",
+			expectedLocation: func() string { abs, _ := filepath.Abs("./fboms/github-com-gin-gonic-gin.fbom.json"); return abs }(),
 		},
 		{
 			packageName:      "golang.org/x/crypto",
-			expectedLocation: "./fboms/golang-org-x-crypto.fbom.json",
+			expectedLocation: func() string { abs, _ := filepath.Abs("./fboms/golang-org-x-crypto.fbom.json"); return abs }(),
 		},
 	}
 

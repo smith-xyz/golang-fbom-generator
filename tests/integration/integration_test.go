@@ -110,7 +110,11 @@ type ExternalFunctionCall struct {
 }
 
 type FBOMReference struct {
+	FBOMLocation   string `json:"fbom_location"`
+	FBOMVersion    string `json:"fbom_version"`
 	ResolutionType string `json:"resolution_type"`
+	ChecksumSHA256 string `json:"checksum_sha256,omitempty"`
+	LastVerified   string `json:"last_verified,omitempty"`
 	SPDXDocumentId string `json:"spdx_document_id"`
 }
 
@@ -818,4 +822,162 @@ func TestEntryPointPatternErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCacheFunctionality tests the cache linking functionality end-to-end
+func TestCacheFunctionality(t *testing.T) {
+	binaryPath := buildBinary(t)
+	defer os.Remove(binaryPath)
+
+	// Use test-project since it has external dependencies
+	examplePath := "../../examples/test-project"
+
+	t.Run("Cache miss reporting in verbose mode", func(t *testing.T) {
+		// Clean any existing cache
+		os.RemoveAll("fboms")
+
+		// Run with verbose flag to see cache miss reporting
+		cmd := exec.Command(binaryPath, "-package", ".", "-v")
+		cmd.Dir = examplePath
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("Command failed: %v\nOutput: %s", err, output)
+		}
+
+		outputStr := string(output)
+
+		// Should contain cache miss report in stderr (verbose output)
+		if !strings.Contains(outputStr, "Cache Miss Report") {
+			t.Error("Expected cache miss report in verbose output")
+		}
+
+		// Should suggest commands to generate missing FBOMs
+		if !strings.Contains(outputStr, "golang-fbom-generator -generate-fbom") {
+			t.Error("Expected suggested generation commands in cache miss report")
+		}
+
+		// Should mention external dependencies
+		if !strings.Contains(outputStr, "github.com/gin-gonic/gin") {
+			t.Error("Expected gin dependency in cache miss report")
+		}
+	})
+
+	t.Run("Cache directory auto-creation", func(t *testing.T) {
+		// Clean any existing cache
+		os.RemoveAll("fboms")
+
+		// Run analysis to trigger cache directory creation (without verbose to avoid mixed output)
+		cmd := exec.Command(binaryPath, "-package", ".")
+		cmd.Dir = examplePath
+
+		output, err := cmd.Output() // Use Output() instead of CombinedOutput() to get only stdout
+		if err != nil {
+			t.Fatalf("Command failed: %v\nOutput: %s", err, output)
+		}
+
+		// Verify JSON output is valid
+		var fbom map[string]interface{}
+		if err := json.Unmarshal(output, &fbom); err != nil {
+			t.Fatalf("Failed to parse JSON output: %v", err)
+		}
+
+		// Check that cache directories were created
+		if _, err := os.Stat(filepath.Join(examplePath, "fboms")); os.IsNotExist(err) {
+			t.Error("Expected cache base directory to be created")
+		}
+		if _, err := os.Stat(filepath.Join(examplePath, "fboms", "external")); os.IsNotExist(err) {
+			t.Error("Expected external cache directory to be created")
+		}
+
+		// Clean up
+		os.RemoveAll(filepath.Join(examplePath, "fboms"))
+	})
+
+	t.Run("Cache linking with pre-existing cached FBOMs", func(t *testing.T) {
+		// Clean any existing cache in both example directory and current directory
+		os.RemoveAll("fboms")
+		os.RemoveAll(filepath.Join(examplePath, "fboms"))
+
+		// Create cache structure in the example directory (where the binary will run)
+		cacheDir := filepath.Join(examplePath, "fboms", "external")
+		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+			t.Fatalf("Failed to create cache directory: %v", err)
+		}
+
+		// Create a fake cached FBOM for gin (using v1.9.1 which is the actual version in test-project)
+		cachedFBOM := map[string]interface{}{
+			"fbom_version": "0.1.0",
+			"functions":    []interface{}{},
+			"dependencies": []interface{}{},
+			"call_graph":   map[string]interface{}{},
+			"package_info": map[string]interface{}{
+				"name": "github.com/gin-gonic/gin",
+			},
+		}
+		cachedContent, _ := json.Marshal(cachedFBOM)
+
+		cachedFile := filepath.Join(cacheDir, "github-com-gin-gonic-gin@v1.9.1.fbom.json")
+		if err := os.WriteFile(cachedFile, cachedContent, 0644); err != nil {
+			t.Fatalf("Failed to create cached FBOM: %v", err)
+		}
+
+		// Run analysis (without verbose to avoid mixed output)
+		cmd := exec.Command(binaryPath, "-package", ".")
+		cmd.Dir = examplePath
+
+		output, err := cmd.Output() // Use Output() instead of CombinedOutput() to get only stdout
+		if err != nil {
+			t.Fatalf("Command failed: %v\nOutput: %s", err, output)
+		}
+
+		// Parse the FBOM output
+		var fbom FBOM
+		if err := json.Unmarshal(output, &fbom); err != nil {
+			t.Fatalf("Failed to parse JSON output: %v", err)
+		}
+
+		// Find the gin dependency
+		var ginDep *Dependency
+		for i := range fbom.Dependencies {
+			if fbom.Dependencies[i].Name == "github.com/gin-gonic/gin" {
+				ginDep = &fbom.Dependencies[i]
+				break
+			}
+		}
+
+		if ginDep == nil {
+			t.Fatal("Expected to find gin dependency in FBOM output")
+		}
+
+		// Check that it has an FBOM reference
+		if ginDep.FBOMReference == nil {
+			t.Fatal("Expected gin dependency to have FBOM reference")
+		}
+
+		// Check that it links to the cached file
+		// Should now use absolute path for portability and clarity
+		expectedAbsPath, _ := filepath.Abs(cachedFile)
+		if ginDep.FBOMReference.FBOMLocation != expectedAbsPath {
+			t.Errorf("Expected FBOM location %s, got %s", expectedAbsPath, ginDep.FBOMReference.FBOMLocation)
+		}
+
+		// Check that it has the cached resolution type
+		if ginDep.FBOMReference.ResolutionType != "cached_external" {
+			t.Errorf("Expected resolution type 'cached_external', got %s", ginDep.FBOMReference.ResolutionType)
+		}
+
+		// Check that checksum is populated
+		if ginDep.FBOMReference.ChecksumSHA256 == "" {
+			t.Error("Expected checksum to be populated for cached FBOM")
+		}
+
+		// Check that last verified is set
+		if ginDep.FBOMReference.LastVerified == "" {
+			t.Error("Expected last verified timestamp to be set")
+		}
+
+		// Clean up
+		os.RemoveAll(filepath.Join(examplePath, "fboms"))
+	})
 }

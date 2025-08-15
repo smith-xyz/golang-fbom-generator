@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/cache"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/config"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
 )
@@ -28,6 +30,7 @@ type FBOMGenerator struct {
 	verbose               bool
 	config                *config.Config
 	additionalEntryPoints []string
+	cacheMisses           []cache.CacheMissReport
 }
 
 // NewFBOMGenerator creates a new FBOM generator
@@ -53,6 +56,7 @@ func NewFBOMGenerator(verbose bool) *FBOMGenerator {
 		verbose:               verbose,
 		config:                cfg,
 		additionalEntryPoints: make([]string, 0),
+		cacheMisses:           make([]cache.CacheMissReport, 0),
 	}
 }
 
@@ -80,7 +84,17 @@ func (g *FBOMGenerator) SetAdditionalEntryPoints(entryPoints []string) error {
 // Generate produces FBOM output for user applications only
 func (g *FBOMGenerator) Generate(assessments []analysis.Assessment, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) error {
 	g.logger.Debug("Generate function called")
+
+	// Ensure cache directories exist for potential cache operations
+	if err := g.ensureCacheDirectories(); err != nil {
+		g.logger.Debug("Failed to ensure cache directories", "error", err)
+		// Continue without caching - not fatal
+	}
+
 	fbom := g.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+
+	// Report cache misses in verbose mode
+	g.reportCacheMisses()
 
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
@@ -1461,13 +1475,8 @@ func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Fu
 			if calledFunctions, exists := externalCallMap[pkg]; exists {
 				dep.CalledFunctions = calledFunctions
 
-				// Add FBOM reference
-				dep.FBOMReference = &ExternalFBOMReference{
-					FBOMLocation:   g.generateFBOMLocation(pkg),
-					FBOMVersion:    "0.1.0",
-					ResolutionType: g.determineFBOMResolutionType(pkg),
-					SPDXDocumentId: fmt.Sprintf("SPDXRef-Document-%s", strings.ReplaceAll(pkg, "/", "-")),
-				}
+				// Add cache-aware FBOM reference
+				dep.FBOMReference = g.createCacheAwareFBOMReference(pkg, version, g.isStandardLibraryPackage(pkg))
 			}
 
 			// Calculate function counts (used and total)
@@ -1513,7 +1522,15 @@ func (g *FBOMGenerator) generateFBOMLocation(packageName string) string {
 	// Replace both slashes and dots with hyphens to create valid filenames
 	safeName := strings.ReplaceAll(packageName, "/", "-")
 	safeName = strings.ReplaceAll(safeName, ".", "-")
-	return fmt.Sprintf("./fboms/%s.fbom.json", safeName)
+
+	// Use absolute path for consistency and portability
+	relativePath := fmt.Sprintf("./fboms/%s.fbom.json", safeName)
+	absPath, err := filepath.Abs(relativePath)
+	if err != nil {
+		g.logger.Debug("Failed to convert placeholder path to absolute", "path", relativePath, "error", err)
+		return relativePath // Fallback to relative if absolute conversion fails
+	}
+	return absPath
 }
 
 // determineFBOMResolutionType determines how to resolve the external FBOM
@@ -1645,4 +1662,114 @@ func (g *FBOMGenerator) calculateFunctionCounts(dep *Dependency) {
 		"package", dep.Name,
 		"used_functions", dep.UsedFunctions,
 		"called_functions", len(dep.CalledFunctions))
+}
+
+// getCurrentGoVersion returns the current Go version for stdlib cache lookups
+func (g *FBOMGenerator) getCurrentGoVersion() string {
+	return fmt.Sprintf("go%s", strings.TrimPrefix(runtime.Version(), "go"))
+}
+
+// createCacheAwareFBOMReference creates an FBOM reference that links to cached FBOMs when available
+func (g *FBOMGenerator) createCacheAwareFBOMReference(packageName, version string, isStdlib bool) *ExternalFBOMReference {
+	// Use Go version for stdlib packages, actual version for external packages
+	cacheVersion := version
+	if isStdlib {
+		cacheVersion = g.getCurrentGoVersion()
+	}
+
+	// Attempt to link to cached FBOM
+	linkResult := cache.LinkToCachedFBOM(packageName, cacheVersion, isStdlib)
+
+	if linkResult.CacheHit {
+		g.logger.Debug("Cache hit for package", "package", packageName, "version", version, "path", linkResult.FilePath)
+
+		// Convert to absolute path for consistency and portability
+		absPath, err := filepath.Abs(linkResult.FilePath)
+		if err != nil {
+			g.logger.Debug("Failed to convert cache path to absolute", "path", linkResult.FilePath, "error", err)
+			absPath = linkResult.FilePath // Fallback to original path
+		}
+
+		return &ExternalFBOMReference{
+			FBOMLocation:   absPath,
+			FBOMVersion:    "0.1.0",
+			ResolutionType: linkResult.ResolutionType,
+			ChecksumSHA256: linkResult.Checksum,
+			LastVerified:   time.Now().UTC().Format(time.RFC3339),
+			SPDXDocumentId: fmt.Sprintf("SPDXRef-Document-%s", strings.ReplaceAll(packageName, "/", "-")),
+		}
+	}
+
+	// Cache miss - record for reporting and fall back to placeholder
+	g.recordCacheMiss(packageName, cacheVersion, isStdlib)
+
+	g.logger.Debug("Cache miss for package", "package", packageName, "version", version)
+
+	// Fall back to the original placeholder logic
+	return &ExternalFBOMReference{
+		FBOMLocation:   g.generateFBOMLocation(packageName),
+		FBOMVersion:    "0.1.0",
+		ResolutionType: g.determineFBOMResolutionType(packageName),
+		SPDXDocumentId: fmt.Sprintf("SPDXRef-Document-%s", strings.ReplaceAll(packageName, "/", "-")),
+	}
+}
+
+// recordCacheMiss records a cache miss for later reporting
+func (g *FBOMGenerator) recordCacheMiss(packageName, version string, isStdlib bool) {
+	miss := cache.CreateCacheMissReport(packageName, version, isStdlib)
+	g.cacheMisses = append(g.cacheMisses, miss)
+}
+
+// collectCacheMisses collects cache misses for the given packages (mainly for testing)
+func (g *FBOMGenerator) collectCacheMisses(packages []string) []cache.CacheMissReport {
+	misses := make([]cache.CacheMissReport, 0)
+
+	for _, pkg := range packages {
+		isStdlib := g.isStandardLibraryPackage(pkg)
+		isDep := g.isDependencyPackage(pkg)
+
+		// Process both dependency packages and stdlib packages
+		if isDep || isStdlib {
+			version := g.extractVersionFromGoMod(pkg)
+
+			// Use appropriate version for cache lookup
+			cacheVersion := version
+			if isStdlib {
+				cacheVersion = g.getCurrentGoVersion()
+			}
+
+			linkResult := cache.LinkToCachedFBOM(pkg, cacheVersion, isStdlib)
+			if !linkResult.CacheHit {
+				miss := cache.CreateCacheMissReport(pkg, cacheVersion, isStdlib)
+				misses = append(misses, miss)
+			}
+		}
+	}
+
+	return misses
+}
+
+// generateCacheMissReport generates a cache miss report
+func (g *FBOMGenerator) generateCacheMissReport(misses []cache.CacheMissReport) string {
+	return cache.GenerateCacheMissReport(misses)
+}
+
+// ensureCacheDirectories ensures cache directories exist
+func (g *FBOMGenerator) ensureCacheDirectories() error {
+	return cache.EnsureCacheDirectoryExists()
+}
+
+// getCacheMisses returns the accumulated cache misses
+func (g *FBOMGenerator) getCacheMisses() []cache.CacheMissReport {
+	return g.cacheMisses
+}
+
+// reportCacheMisses reports cache misses if in verbose mode
+func (g *FBOMGenerator) reportCacheMisses() {
+	if len(g.cacheMisses) > 0 && g.verbose {
+		report := g.generateCacheMissReport(g.cacheMisses)
+		if report != "" {
+			fmt.Fprint(os.Stderr, report)
+		}
+	}
 }
