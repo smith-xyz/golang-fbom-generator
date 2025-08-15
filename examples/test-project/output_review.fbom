@@ -1,0 +1,1836 @@
+{
+  "fbom_version": "0.1.0",
+  "spdx_id": "SPDXRef-FBOM-ROOT",
+  "creation_info": {
+    "created": "1755198207",
+    "created_by": "golang-fbom-generator Function Bill of Materials Generator",
+    "tool_name": "golang-fbom-generator",
+    "tool_version": "v1.0.0-beta",
+    "creators": [
+      "Tool: golang-fbom-generator"
+    ],
+    "license_list_id": "MIT"
+  },
+  "package_info": {
+    "name": "test-project",
+    "spdx_id": "SPDXRef-Package-test-project",
+    "source_info": "Local Go Package Analysis"
+  },
+  "functions": [
+    {
+      "spdx_id": "SPDXRef-Function-loadConfig",
+      "name": "loadConfig",
+      "full_name": "test-project.loadConfig",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 88,
+      "end_line": 98,
+      "signature": "func(filename string) test-project.Config",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "filename",
+          "type": "string"
+        }
+      ],
+      "return_types": [
+        "test-project.Config"
+      ],
+      "usage_info": {
+        "calls": [],
+        "called_by": [
+          "test-project.main"
+        ],
+        "external_calls": [
+          "gopkg.in/yaml.v2.Unmarshal"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": true,
+        "reachability_type": "direct",
+        "distance_from_entry": 1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-handleHealth",
+      "name": "handleHealth",
+      "full_name": "test-project.handleHealth",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 44,
+      "end_line": 54,
+      "signature": "func(c *github.com/gin-gonic/gin.Context)",
+      "visibility": "private",
+      "function_type": "method",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [
+          "github.com/gin-gonic/gin.JSON"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-Start",
+      "name": "Start",
+      "full_name": "test-project.Start",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 32,
+      "end_line": 42,
+      "signature": "func() error",
+      "visibility": "public",
+      "function_type": "method",
+      "is_exported": true,
+      "parameters": null,
+      "return_types": [
+        "error"
+      ],
+      "usage_info": {
+        "calls": [
+          "test-project.setupRoutes"
+        ],
+        "called_by": [
+          "test-project.main"
+        ],
+        "external_calls": [
+          "github.com/gin-gonic/gin.Run"
+        ],
+        "stdlib_calls": [
+          "fmt.Sprintf"
+        ],
+        "is_reachable": true,
+        "reachability_type": "direct",
+        "distance_from_entry": 1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-init",
+      "name": "init",
+      "full_name": "test-project.init",
+      "package": "test-project",
+      "file_path": "unknown",
+      "start_line": 0,
+      "end_line": 10,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "init",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [
+          "github.com/gin-gonic/gin.init",
+          "gopkg.in/yaml.v2.init"
+        ],
+        "stdlib_calls": [
+          "fmt.init",
+          "reflect.init"
+        ],
+        "is_reachable": true,
+        "reachability_type": "direct",
+        "distance_from_entry": 0,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": true,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-main",
+      "name": "main",
+      "full_name": "test-project.main",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 67,
+      "end_line": 77,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "main",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [
+          "test-project.loadConfig",
+          "test-project.NewServer",
+          "test-project.Start"
+        ],
+        "called_by": [],
+        "external_calls": [
+          "github.com/gin-gonic/gin.Default",
+          "github.com/gin-gonic/gin.GET",
+          "github.com/gin-gonic/gin.Run"
+        ],
+        "stdlib_calls": [
+          "fmt.Println",
+          "fmt.Sprintf"
+        ],
+        "is_reachable": true,
+        "reachability_type": "direct",
+        "distance_from_entry": 0,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": true,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-NewServer",
+      "name": "NewServer",
+      "full_name": "test-project.NewServer",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 24,
+      "end_line": 34,
+      "signature": "func(config test-project.Config) *test-project.Server",
+      "visibility": "public",
+      "function_type": "regular",
+      "is_exported": true,
+      "parameters": [
+        {
+          "name": "config",
+          "type": "test-project.Config"
+        }
+      ],
+      "return_types": [
+        "*test-project.Server"
+      ],
+      "usage_info": {
+        "calls": [],
+        "called_by": [
+          "test-project.main"
+        ],
+        "external_calls": [
+          "github.com/gin-gonic/gin.Default"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": true,
+        "reachability_type": "direct",
+        "distance_from_entry": 1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-processUserData",
+      "name": "processUserData",
+      "full_name": "test-project.processUserData",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 134,
+      "end_line": 144,
+      "signature": "func(c *github.com/gin-gonic/gin.Context) map[string]interface{}",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": [
+        "map[string]interface{}"
+      ],
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-reflectionHandler",
+      "name": "reflectionHandler",
+      "full_name": "test-project.reflectionHandler",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 122,
+      "end_line": 132,
+      "signature": "func(c *github.com/gin-gonic/gin.Context)",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": null,
+      "usage_info": {
+        "calls": [
+          "test-project.performReflectionOperation",
+          "test-project.callVulnerableFunctionViaReflection"
+        ],
+        "called_by": [],
+        "external_calls": [
+          "github.com/gin-gonic/gin.JSON"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": true,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-callVulnerableFunctionViaReflection",
+      "name": "callVulnerableFunctionViaReflection",
+      "full_name": "test-project.callVulnerableFunctionViaReflection",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 173,
+      "end_line": 183,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [
+          "test-project.reflectionHandler",
+          "test-project.performReflectionOperation"
+        ],
+        "external_calls": [],
+        "stdlib_calls": [
+          "reflect.ValueOf",
+          "reflect.ValueOf",
+          "reflect.ValueOf",
+          "reflect.Call",
+          "reflect.Interface",
+          "fmt.Printf",
+          "reflect.IsNil"
+        ],
+        "is_reachable": true,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-setupRoutes",
+      "name": "setupRoutes",
+      "full_name": "test-project.setupRoutes",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 38,
+      "end_line": 48,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "method",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [
+          "test-project.Start"
+        ],
+        "external_calls": [
+          "github.com/gin-gonic/gin.GET",
+          "github.com/gin-gonic/gin.POST"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": true,
+        "reachability_type": "transitive",
+        "distance_from_entry": 2,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-dataHandler",
+      "name": "dataHandler",
+      "full_name": "test-project.dataHandler",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 109,
+      "end_line": 119,
+      "signature": "func(c *github.com/gin-gonic/gin.Context)",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-helperFunction",
+      "name": "helperFunction",
+      "full_name": "test-project.helperFunction",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 208,
+      "end_line": 218,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-handleData",
+      "name": "handleData",
+      "full_name": "test-project.handleData",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 49,
+      "end_line": 59,
+      "signature": "func(c *github.com/gin-gonic/gin.Context)",
+      "visibility": "private",
+      "function_type": "method",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": null,
+      "usage_info": {
+        "calls": [
+          "test-project.processData"
+        ],
+        "called_by": [],
+        "external_calls": [
+          "github.com/gin-gonic/gin.JSON"
+        ],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-GetConfig",
+      "name": "GetConfig",
+      "full_name": "test-project.GetConfig",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 63,
+      "end_line": 73,
+      "signature": "func() test-project.Config",
+      "visibility": "public",
+      "function_type": "method",
+      "is_exported": true,
+      "parameters": null,
+      "return_types": [
+        "test-project.Config"
+      ],
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-processData",
+      "name": "processData",
+      "full_name": "test-project.processData",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 55,
+      "end_line": 65,
+      "signature": "func() map[string]interface{}",
+      "visibility": "private",
+      "function_type": "method",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": [
+        "map[string]interface{}"
+      ],
+      "usage_info": {
+        "calls": [],
+        "called_by": [
+          "test-project.handleData"
+        ],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": true,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-performReflectionOperation",
+      "name": "performReflectionOperation",
+      "full_name": "test-project.performReflectionOperation",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 145,
+      "end_line": 155,
+      "signature": "func() string",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": [
+        "string"
+      ],
+      "usage_info": {
+        "calls": [
+          "test-project.callVulnerableFunctionViaReflection"
+        ],
+        "called_by": [
+          "test-project.reflectionHandler"
+        ],
+        "external_calls": [],
+        "stdlib_calls": [
+          "reflect.TypeOf",
+          "reflect.New",
+          "reflect.Elem",
+          "reflect.SetString",
+          "reflect.MethodByName",
+          "reflect.IsValid",
+          "reflect.Call",
+          "reflect.String"
+        ],
+        "is_reachable": true,
+        "reachability_type": "transitive",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": true,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-deepFunction",
+      "name": "deepFunction",
+      "full_name": "test-project.deepFunction",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 202,
+      "end_line": 212,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-anotherHelper",
+      "name": "anotherHelper",
+      "full_name": "test-project.anotherHelper",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 213,
+      "end_line": 223,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-healthHandler",
+      "name": "healthHandler",
+      "full_name": "test-project.healthHandler",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 104,
+      "end_line": 114,
+      "signature": "func(c *github.com/gin-gonic/gin.Context)",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": [
+        {
+          "name": "c",
+          "type": "*github.com/gin-gonic/gin.Context"
+        }
+      ],
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    },
+    {
+      "spdx_id": "SPDXRef-Function-unusedFunction",
+      "name": "unusedFunction",
+      "full_name": "test-project.unusedFunction",
+      "package": "test-project",
+      "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+      "start_line": 192,
+      "end_line": 202,
+      "signature": "func()",
+      "visibility": "private",
+      "function_type": "regular",
+      "is_exported": false,
+      "parameters": null,
+      "return_types": null,
+      "usage_info": {
+        "calls": [],
+        "called_by": [],
+        "external_calls": [],
+        "stdlib_calls": [],
+        "is_reachable": false,
+        "reachability_type": "unreachable",
+        "distance_from_entry": -1,
+        "in_critical_path": false,
+        "has_reflection_access": false,
+        "is_entry_point": false,
+        "cve_references": []
+      }
+    }
+  ],
+  "call_graph": {
+    "total_functions": 20,
+    "used_functions": 10,
+    "unused_functions": 10,
+    "total_edges": 41,
+    "max_depth": 2,
+    "avg_depth": 0.8333333333333334,
+    "call_edges": [
+      {
+        "caller": "test-project.main",
+        "callee": "fmt.Println",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 68
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "test-project.loadConfig",
+        "call_type": "direct",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 71
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "test-project.NewServer",
+        "call_type": "direct",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 74
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "test-project.Start",
+        "call_type": "direct",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 77
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "github.com/gin-gonic/gin.Default",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 82
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "github.com/gin-gonic/gin.GET",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 83
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "fmt.Sprintf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 84
+      },
+      {
+        "caller": "test-project.main",
+        "callee": "github.com/gin-gonic/gin.Run",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 84
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.TypeOf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 147
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.New",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 150
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.Elem",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 150
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.SetString",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 151
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.MethodByName",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 156
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.IsValid",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 157
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.Call",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 158
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "test-project.callVulnerableFunctionViaReflection",
+        "call_type": "transitive",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 166
+      },
+      {
+        "caller": "test-project.performReflectionOperation",
+        "callee": "reflect.String",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 160
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.ValueOf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 175
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.ValueOf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 178
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.ValueOf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 179
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.Call",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 183
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.Interface",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 187
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "fmt.Printf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 187
+      },
+      {
+        "caller": "test-project.callVulnerableFunctionViaReflection",
+        "callee": "reflect.IsNil",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 186
+      },
+      {
+        "caller": "test-project.NewServer",
+        "callee": "github.com/gin-gonic/gin.Default",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 27
+      },
+      {
+        "caller": "test-project.setupRoutes",
+        "callee": "github.com/gin-gonic/gin.GET",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 39
+      },
+      {
+        "caller": "test-project.setupRoutes",
+        "callee": "github.com/gin-gonic/gin.POST",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 40
+      },
+      {
+        "caller": "test-project.loadConfig",
+        "callee": "gopkg.in/yaml.v2.Unmarshal",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 96
+      },
+      {
+        "caller": "test-project.handleHealth",
+        "callee": "github.com/gin-gonic/gin.JSON",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 45
+      },
+      {
+        "caller": "test-project.Start",
+        "callee": "test-project.setupRoutes",
+        "call_type": "transitive",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 33
+      },
+      {
+        "caller": "test-project.Start",
+        "callee": "fmt.Sprintf",
+        "call_type": "stdlib",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 34
+      },
+      {
+        "caller": "test-project.Start",
+        "callee": "github.com/gin-gonic/gin.Run",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 34
+      },
+      {
+        "caller": "test-project.init",
+        "callee": "fmt.init",
+        "call_type": "stdlib",
+        "file_path": "",
+        "line_number": 0
+      },
+      {
+        "caller": "test-project.init",
+        "callee": "reflect.init",
+        "call_type": "stdlib",
+        "file_path": "",
+        "line_number": 0
+      },
+      {
+        "caller": "test-project.init",
+        "callee": "github.com/gin-gonic/gin.init",
+        "call_type": "external",
+        "file_path": "",
+        "line_number": 0
+      },
+      {
+        "caller": "test-project.init",
+        "callee": "gopkg.in/yaml.v2.init",
+        "call_type": "external",
+        "file_path": "",
+        "line_number": 0
+      },
+      {
+        "caller": "test-project.handleData",
+        "callee": "test-project.processData",
+        "call_type": "transitive",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 50
+      },
+      {
+        "caller": "test-project.handleData",
+        "callee": "github.com/gin-gonic/gin.JSON",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 51
+      },
+      {
+        "caller": "test-project.reflectionHandler",
+        "callee": "test-project.performReflectionOperation",
+        "call_type": "transitive",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 124
+      },
+      {
+        "caller": "test-project.reflectionHandler",
+        "callee": "test-project.callVulnerableFunctionViaReflection",
+        "call_type": "transitive",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 128
+      },
+      {
+        "caller": "test-project.reflectionHandler",
+        "callee": "github.com/gin-gonic/gin.JSON",
+        "call_type": "external",
+        "file_path": "/Users/shsmith/rh/code/golang-fbom-generator/examples/test-project/main.go",
+        "line_number": 130
+      }
+    ],
+    "reachable_functions": 6
+  },
+  "entry_points": [
+    {
+      "spdx_id": "SPDXRef-EntryPoint-init",
+      "name": "init",
+      "type": "init",
+      "package": "test-project",
+      "accessible_from": [
+        "internal"
+      ],
+      "security_level": "internal",
+      "reachable_functions": 1
+    },
+    {
+      "spdx_id": "SPDXRef-EntryPoint-main",
+      "name": "main",
+      "type": "main",
+      "package": "test-project",
+      "accessible_from": [
+        "external"
+      ],
+      "security_level": "public",
+      "reachable_functions": 5
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "github.com/gabriel-vasile/mimetype",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gabriel-vasile-mimetype",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gabriel-vasile/mimetype/internal/charset",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gabriel-vasile-mimetype-internal-charset",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gabriel-vasile/mimetype/internal/json",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gabriel-vasile-mimetype-internal-json",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gabriel-vasile/mimetype/internal/magic",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gabriel-vasile-mimetype-internal-magic",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gin-contrib/sse",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-contrib-sse",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gin-gonic/gin",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-gonic-gin",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 6,
+      "total_functions": 0,
+      "fbom_reference": {
+        "fbom_location": "./fboms/github-com-gin-gonic-gin.fbom.json",
+        "fbom_version": "0.1.0",
+        "resolution_type": "file",
+        "spdx_document_id": "SPDXRef-Document-github.com-gin-gonic-gin"
+      },
+      "called_functions": [
+        {
+          "function_name": "JSON",
+          "full_function_name": "github.com/gin-gonic/gin.JSON",
+          "call_sites": [
+            "handleHealth",
+            "reflectionHandler",
+            "handleData"
+          ],
+          "call_count": 3,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "Run",
+          "full_function_name": "github.com/gin-gonic/gin.Run",
+          "call_sites": [
+            "Start",
+            "main"
+          ],
+          "call_count": 2,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "init",
+          "full_function_name": "github.com/gin-gonic/gin.init",
+          "call_sites": [
+            "init"
+          ],
+          "call_count": 1,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "Default",
+          "full_function_name": "github.com/gin-gonic/gin.Default",
+          "call_sites": [
+            "main",
+            "NewServer"
+          ],
+          "call_count": 2,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "GET",
+          "full_function_name": "github.com/gin-gonic/gin.GET",
+          "call_sites": [
+            "main",
+            "setupRoutes"
+          ],
+          "call_count": 2,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "POST",
+          "full_function_name": "github.com/gin-gonic/gin.POST",
+          "call_sites": [
+            "setupRoutes"
+          ],
+          "call_count": 1,
+          "call_context": "direct"
+        }
+      ]
+    },
+    {
+      "name": "github.com/gin-gonic/gin/binding",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-gonic-gin-binding",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gin-gonic/gin/internal/bytesconv",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-gonic-gin-internal-bytesconv",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gin-gonic/gin/internal/json",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-gonic-gin-internal-json",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/gin-gonic/gin/render",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-gin-gonic-gin-render",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/go-playground/locales",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-go-playground-locales",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/go-playground/locales/currency",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-go-playground-locales-currency",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/go-playground/universal-translator",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-go-playground-universal-translator",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/go-playground/validator/v10",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-go-playground-validator-v10",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/leodido/go-urn",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-leodido-go-urn",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/mattn/go-isatty",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-mattn-go-isatty",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/pelletier/go-toml/v2",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-pelletier-go-toml-v2",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/pelletier/go-toml/v2/internal/characters",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-pelletier-go-toml-v2-internal-characters",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/pelletier/go-toml/v2/internal/danger",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-pelletier-go-toml-v2-internal-danger",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/pelletier/go-toml/v2/internal/tracker",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-pelletier-go-toml-v2-internal-tracker",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/pelletier/go-toml/v2/unstable",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-pelletier-go-toml-v2-unstable",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "github.com/ugorji/go/codec",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-github.com-ugorji-go-codec",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/crypto/sha3",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-crypto-sha3",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/html",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-html",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/html/atom",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-html-atom",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/http/httpguts",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-http-httpguts",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/http2",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-http2",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/http2/h2c",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-http2-h2c",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/http2/hpack",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-http2-hpack",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/net/idna",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-net-idna",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/sys/unix",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-sys-unix",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/internal/language",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-internal-language",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/internal/language/compact",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-internal-language-compact",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/internal/tag",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-internal-tag",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/language",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-language",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/secure/bidirule",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-secure-bidirule",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/transform",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-transform",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/unicode/bidi",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-unicode-bidi",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "golang.org/x/text/unicode/norm",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-golang.org-x-text-unicode-norm",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/encoding/protowire",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-encoding-protowire",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/detrand",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-detrand",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/encoding/messageset",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-encoding-messageset",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/errors",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-errors",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/flags",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-flags",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/genid",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-genid",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/order",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-order",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/pragma",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-pragma",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/internal/strs",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-internal-strs",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/proto",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-proto",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/reflect/protoreflect",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-reflect-protoreflect",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/reflect/protoregistry",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-reflect-protoregistry",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "google.golang.org/protobuf/runtime/protoiface",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-google.golang.org-protobuf-runtime-protoiface",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "gopkg.in/yaml.v2",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-gopkg.in-yaml.v2",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 2,
+      "total_functions": 0,
+      "fbom_reference": {
+        "fbom_location": "./fboms/gopkg-in-yaml-v2.fbom.json",
+        "fbom_version": "0.1.0",
+        "resolution_type": "file",
+        "spdx_document_id": "SPDXRef-Document-gopkg.in-yaml.v2"
+      },
+      "called_functions": [
+        {
+          "function_name": "Unmarshal",
+          "full_function_name": "gopkg.in/yaml.v2.Unmarshal",
+          "call_sites": [
+            "loadConfig"
+          ],
+          "call_count": 1,
+          "call_context": "direct"
+        },
+        {
+          "function_name": "init",
+          "full_function_name": "gopkg.in/yaml.v2.init",
+          "call_sites": [
+            "init"
+          ],
+          "call_count": 1,
+          "call_context": "direct"
+        }
+      ]
+    },
+    {
+      "name": "gopkg.in/yaml.v3",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-gopkg.in-yaml.v3",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/chacha20",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-chacha20",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/chacha20poly1305",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-chacha20poly1305",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/cryptobyte",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-cryptobyte",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/cryptobyte/asn1",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-cryptobyte-asn1",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/internal/alias",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-internal-alias",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/crypto/internal/poly1305",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-crypto-internal-poly1305",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/dns/dnsmessage",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-dns-dnsmessage",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/http/httpguts",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-http-httpguts",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/http/httpproxy",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-http-httpproxy",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/http2/hpack",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-http2-hpack",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/idna",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-idna",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/net/route",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-net-route",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/text/secure/bidirule",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-text-secure-bidirule",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/text/transform",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-text-transform",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/text/unicode/bidi",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-text-unicode-bidi",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    },
+    {
+      "name": "vendor/golang.org/x/text/unicode/norm",
+      "version": "unknown",
+      "type": "go-module",
+      "spdx_id": "SPDXRef-Package-vendor-golang.org-x-text-unicode-norm",
+      "package_manager": "go",
+      "purl_identifier": "",
+      "used_functions": 0,
+      "total_functions": 0
+    }
+  ],
+  "security_info": {
+    "vulnerable_functions": [],
+    "security_hotspots": [],
+    "critical_paths": [],
+    "unreachable_vulnerabilities": [],
+    "reflection_calls_count": 2,
+    "total_cves_found": 0,
+    "total_reachable_cves": 0
+  }
+}
