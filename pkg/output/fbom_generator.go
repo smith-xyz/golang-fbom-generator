@@ -1447,12 +1447,14 @@ func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Fu
 	// Build dependencies with enhanced metadata
 	for _, pkg := range packages {
 		if g.isDependencyPackage(pkg) {
+			version := g.extractVersionFromGoMod(pkg)
 			dep := Dependency{
 				Name:           pkg,
 				Version:        g.extractVersionFromGoMod(pkg),
 				Type:           "go-module",
 				SPDXId:         fmt.Sprintf("SPDXRef-Package-%s", strings.ReplaceAll(pkg, "/", "-")),
 				PackageManager: "go",
+				PurlIdentifier: g.generatePurlIdentifier(pkg, version),
 				UsedFunctions:  0,
 				TotalFunctions: 0,
 			}
@@ -1612,4 +1614,20 @@ func (g *FBOMGenerator) extractRootPackageForVersionLookup(packageName string) s
 
 	// Default: return the package name as-is
 	return packageName
+}
+
+// generatePurlIdentifier generates a Package URL (PURL) identifier for a Go module
+// according to the PURL specification: https://github.com/package-url/purl-spec
+func (g *FBOMGenerator) generatePurlIdentifier(packageName, version string) string {
+	// Return empty PURL for unknown or empty versions
+	if version == "" || version == "unknown" {
+		return ""
+	}
+
+	// Extract the root package name for consistent PURL generation
+	rootPackage := g.extractRootPackageForVersionLookup(packageName)
+
+	// Generate PURL in the format: pkg:golang/namespace/name@version
+	// For Go modules, the namespace and name are combined as the full module path
+	return fmt.Sprintf("pkg:golang/%s@%s", rootPackage, version)
 }

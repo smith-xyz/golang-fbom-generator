@@ -28,6 +28,7 @@ type TestExpectation struct {
 type ExpectedDependency struct {
 	Name                 string                 `yaml:"name"`
 	Version              string                 `yaml:"version"`
+	PurlIdentifier       string                 `yaml:"purl_identifier"`
 	CalledFunctionsCount int                    `yaml:"called_functions_count"`
 	CalledFunctions      []ExpectedFunctionCall `yaml:"called_functions"`
 	HasFBOMReference     bool                   `yaml:"has_fbom_reference"`
@@ -60,6 +61,7 @@ type Assertion struct {
 	Function        string `yaml:"function"`
 	ExpectedContext string `yaml:"expected_context"`
 	ExpectedVersion string `yaml:"expected_version"`
+	ExpectedPurl    string `yaml:"expected_purl"`
 	MinCount        int    `yaml:"min_count"`
 	Caller          string `yaml:"caller"`
 	Callee          string `yaml:"callee"`
@@ -93,6 +95,7 @@ type Function struct {
 type Dependency struct {
 	Name            string                 `json:"name"`
 	Version         string                 `json:"version"`
+	PurlIdentifier  string                 `json:"purl_identifier"`
 	CalledFunctions []ExternalFunctionCall `json:"called_functions"`
 	FBOMReference   *FBOMReference         `json:"fbom_reference"`
 }
@@ -230,6 +233,12 @@ func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectatio
 				if expectedDep.Version != "" && actualDep.Version != expectedDep.Version {
 					t.Errorf("Dependency %s: expected version '%s', got '%s'",
 						expectedDep.Name, expectedDep.Version, actualDep.Version)
+				}
+
+				// Check PURL identifier
+				if expectedDep.PurlIdentifier != "" && actualDep.PurlIdentifier != expectedDep.PurlIdentifier {
+					t.Errorf("Dependency %s: expected PURL identifier '%s', got '%s'",
+						expectedDep.Name, expectedDep.PurlIdentifier, actualDep.PurlIdentifier)
 				}
 
 				// Check FBOM reference
@@ -392,6 +401,22 @@ func runAssertions(t *testing.T, fbom *FBOM, assertions []Assertion) {
 			}
 			if !found {
 				t.Errorf("Assertion failed: dependency '%s' should exist for version check", assertion.Name)
+			}
+
+		case "dependency_purl":
+			found := false
+			for _, dep := range fbom.Dependencies {
+				if dep.Name == assertion.Name {
+					found = true
+					if dep.PurlIdentifier != assertion.ExpectedPurl {
+						t.Errorf("Assertion failed: dependency '%s' should have PURL identifier '%s', got '%s'",
+							assertion.Name, assertion.ExpectedPurl, dep.PurlIdentifier)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Assertion failed: dependency '%s' should exist for PURL check", assertion.Name)
 			}
 
 		case "no_external_dependencies":
