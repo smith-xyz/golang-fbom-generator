@@ -27,6 +27,7 @@ type TestExpectation struct {
 
 type ExpectedDependency struct {
 	Name                 string                 `yaml:"name"`
+	Version              string                 `yaml:"version"`
 	CalledFunctionsCount int                    `yaml:"called_functions_count"`
 	CalledFunctions      []ExpectedFunctionCall `yaml:"called_functions"`
 	HasFBOMReference     bool                   `yaml:"has_fbom_reference"`
@@ -58,6 +59,7 @@ type Assertion struct {
 	Dependency      string `yaml:"dependency"`
 	Function        string `yaml:"function"`
 	ExpectedContext string `yaml:"expected_context"`
+	ExpectedVersion string `yaml:"expected_version"`
 	MinCount        int    `yaml:"min_count"`
 	Caller          string `yaml:"caller"`
 	Callee          string `yaml:"callee"`
@@ -90,6 +92,7 @@ type Function struct {
 
 type Dependency struct {
 	Name            string                 `json:"name"`
+	Version         string                 `json:"version"`
 	CalledFunctions []ExternalFunctionCall `json:"called_functions"`
 	FBOMReference   *FBOMReference         `json:"fbom_reference"`
 }
@@ -221,6 +224,12 @@ func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectatio
 				if expectedDep.CalledFunctionsCount > 0 && len(actualDep.CalledFunctions) != expectedDep.CalledFunctionsCount {
 					t.Errorf("Dependency %s: expected exactly %d called functions, got %d",
 						expectedDep.Name, expectedDep.CalledFunctionsCount, len(actualDep.CalledFunctions))
+				}
+
+				// Check version
+				if expectedDep.Version != "" && actualDep.Version != expectedDep.Version {
+					t.Errorf("Dependency %s: expected version '%s', got '%s'",
+						expectedDep.Name, expectedDep.Version, actualDep.Version)
 				}
 
 				// Check FBOM reference
@@ -367,6 +376,22 @@ func runAssertions(t *testing.T, fbom *FBOM, assertions []Assertion) {
 			}
 			if !found {
 				t.Errorf("Assertion failed: dependency '%s' should exist", assertion.Name)
+			}
+
+		case "dependency_version":
+			found := false
+			for _, dep := range fbom.Dependencies {
+				if dep.Name == assertion.Name {
+					found = true
+					if dep.Version != assertion.ExpectedVersion {
+						t.Errorf("Assertion failed: dependency '%s' should have version '%s', got '%s'",
+							assertion.Name, assertion.ExpectedVersion, dep.Version)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Assertion failed: dependency '%s' should exist for version check", assertion.Name)
 			}
 
 		case "no_external_dependencies":

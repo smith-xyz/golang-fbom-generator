@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -1448,7 +1449,7 @@ func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Fu
 		if g.isDependencyPackage(pkg) {
 			dep := Dependency{
 				Name:           pkg,
-				Version:        "unknown", // TODO: Extract from go.mod
+				Version:        g.extractVersionFromGoMod(pkg),
 				Type:           "go-module",
 				SPDXId:         fmt.Sprintf("SPDXRef-Package-%s", strings.ReplaceAll(pkg, "/", "-")),
 				PackageManager: "go",
@@ -1520,4 +1521,95 @@ func (g *FBOMGenerator) determineFBOMResolutionType(packageName string) string {
 	// - "url" for HTTP-accessible FBOMs
 	// - "computed" for generated FBOMs
 	return "file"
+}
+
+// extractVersionFromGoMod extracts the version information for a package using go list
+func (g *FBOMGenerator) extractVersionFromGoMod(packageName string) string {
+	// Get module versions using go list command
+	moduleVersions, err := g.getModuleVersions()
+	if err != nil {
+		g.logger.Debug("Failed to get module versions using go list", "error", err)
+		return "unknown"
+	}
+
+	// Extract root package name for lookup
+	rootPackage := g.extractRootPackageForVersionLookup(packageName)
+
+	// Look up version in the module versions map
+	if version, exists := moduleVersions[rootPackage]; exists {
+		g.logger.Debug("Found version for package", "package", packageName, "root_package", rootPackage, "version", version)
+		return version
+	}
+
+	g.logger.Debug("No version found for package", "package", packageName, "root_package", rootPackage)
+	return "unknown"
+}
+
+// getModuleVersions executes 'go list -m all' to get all module versions
+func (g *FBOMGenerator) getModuleVersions() (map[string]string, error) {
+	cmd := exec.Command("go", "list", "-m", "all")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute 'go list -m all': %w", err)
+	}
+
+	moduleVersions := make(map[string]string)
+	lines := strings.Split(string(output), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Parse line format: "module version"
+		// Example: "github.com/gin-gonic/gin v1.9.1"
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			module := parts[0]
+			version := parts[1]
+			moduleVersions[module] = version
+		} else if len(parts) == 1 {
+			// Main module has no version
+			moduleVersions[parts[0]] = ""
+		}
+	}
+
+	return moduleVersions, nil
+}
+
+// extractRootPackageForVersionLookup extracts the root package name for version lookup
+func (g *FBOMGenerator) extractRootPackageForVersionLookup(packageName string) string {
+	// Handle special cases for version lookup
+	if strings.HasPrefix(packageName, "golang.org/x/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 3 {
+			return strings.Join(parts[:3], "/")
+		}
+	}
+
+	if strings.HasPrefix(packageName, "google.golang.org/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 2 {
+			return strings.Join(parts[:2], "/")
+		}
+	}
+
+	if strings.HasPrefix(packageName, "gopkg.in/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 2 {
+			return strings.Join(parts[:2], "/")
+		}
+	}
+
+	// For GitHub packages: github.com/owner/repo
+	if strings.HasPrefix(packageName, "github.com/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 3 {
+			return strings.Join(parts[:3], "/")
+		}
+	}
+
+	// Default: return the package name as-is
+	return packageName
 }

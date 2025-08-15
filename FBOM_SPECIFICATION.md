@@ -153,10 +153,12 @@ Array of user-defined function objects. Only includes functions from the target 
 #### `dependencies` (array, required)
 External dependencies (third-party packages) used by the application.
 
+**Version Detection**: Dependency versions are extracted from the project's `go.mod` file using the `go list -m all` command, ensuring accurate version information that matches the actual resolved dependencies.
+
 ```json
 {
   "name": "string",                 // Dependency package name
-  "version": "string",              // Package version
+  "version": "string",              // Package version (extracted from go.mod)
   "type": "string",                 // Package type (e.g., "go-module")
   "spdx_id": "string",             // SPDX identifier for this dependency
   "package_manager": "string",      // Package manager (e.g., "go-modules")

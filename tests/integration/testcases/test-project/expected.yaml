@@ -4,6 +4,7 @@ description: "Test external dependency tracking with gin web framework and yaml 
 expectations:
   dependencies:
     - name: "github.com/gin-gonic/gin"
+      version: "v1.9.1"
       called_functions_count: 6
       called_functions:
         - function_name: "Default"
@@ -19,6 +20,7 @@ expectations:
       has_fbom_reference: true
       
     - name: "gopkg.in/yaml.v2"
+      version: "v2.4.0"
       called_functions_count: 2
       called_functions:
         - function_name: "Unmarshal"
@@ -51,6 +53,14 @@ assertions:
     
   - type: "dependency_exists"
     name: "gopkg.in/yaml.v2"
+    
+  - type: "dependency_version"
+    name: "github.com/gin-gonic/gin"
+    expected_version: "v1.9.1"
+    
+  - type: "dependency_version"
+    name: "gopkg.in/yaml.v2"
+    expected_version: "v2.4.0"
     
   - type: "function_called"
     dependency: "github.com/gin-gonic/gin"

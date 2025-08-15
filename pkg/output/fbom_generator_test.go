@@ -2326,3 +2326,183 @@ func TestBug19_PackageFilteringIssue(t *testing.T) {
 		t.Logf("Bug 19 - Both versions find the edge - filtering not the issue")
 	}
 }
+
+// TestVersionSpecificDependencies tests that dependency versions are correctly extracted from go.mod
+func TestVersionSpecificDependencies(t *testing.T) {
+	t.Log("Testing version-specific dependency extraction from go.mod files")
+
+	// Test using the test-project which has a go.mod file with specific versions
+	testProjectPath := filepath.Join("..", "..", "examples", "test-project")
+
+	// Verify test project exists and has go.mod
+	goModPath := filepath.Join(testProjectPath, "go.mod")
+	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+		t.Fatalf("Test project go.mod not found at %s", goModPath)
+	}
+
+	// Change to test-project directory for analysis
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalWd)
+	}()
+
+	err = os.Chdir(testProjectPath)
+	if err != nil {
+		t.Fatalf("Failed to change to test project directory: %v", err)
+	}
+
+	// Generate FBOM using FBOMGenerator
+	fbomGenerator := NewFBOMGenerator(false) // non-verbose for cleaner test output
+	callGraphGen := callgraphgen.NewGenerator(".", false)
+	callGraphResult, ssaProgram, err := callGraphGen.Generate()
+	if err != nil {
+		t.Fatalf("Failed to build call graph for test-project: %v", err)
+	}
+
+	assessments := []analysis.Assessment{}
+	reflectionUsage := map[string]*reflection.Usage{}
+
+	// Generate FBOM
+	fbom := fbomGenerator.buildFBOM(assessments, reflectionUsage, callGraphResult, ssaProgram, "test-project")
+
+	// Test that FBOM has dependencies with version information
+	if len(fbom.Dependencies) == 0 {
+		t.Fatalf("Expected dependencies but found none")
+	}
+
+	// Define expected versions from go.mod
+	expectedVersions := map[string]string{
+		"github.com/gin-gonic/gin":   "v1.9.1",
+		"gopkg.in/yaml.v2":           "v2.4.0",
+		"golang.org/x/crypto":        "v0.9.0",
+		"golang.org/x/net":           "v0.10.0",
+		"golang.org/x/sys":           "v0.8.0",
+		"golang.org/x/text":          "v0.9.0",
+		"google.golang.org/protobuf": "v1.30.0",
+		"gopkg.in/yaml.v3":           "v3.0.1",
+	}
+
+	// Verify that key dependencies have correct versions
+	foundVersions := make(map[string]string)
+	for _, dep := range fbom.Dependencies {
+		// Extract root package name (remove subpackages)
+		rootPackage := extractRootPackage(dep.Name)
+		if expectedVersion, exists := expectedVersions[rootPackage]; exists {
+			foundVersions[rootPackage] = dep.Version
+
+			// Check that version is not "unknown"
+			if dep.Version == "unknown" {
+				t.Errorf("Dependency %s has version 'unknown', expected %s", rootPackage, expectedVersion)
+			}
+
+			// Check that version matches expected
+			if dep.Version != expectedVersion {
+				t.Errorf("Dependency %s has version %s, expected %s", rootPackage, dep.Version, expectedVersion)
+			}
+		}
+	}
+
+	// Ensure we found the key dependencies
+	keyDependencies := []string{
+		"github.com/gin-gonic/gin",
+		"gopkg.in/yaml.v2",
+	}
+
+	for _, keyDep := range keyDependencies {
+		if version, found := foundVersions[keyDep]; !found {
+			t.Errorf("Key dependency %s not found in FBOM", keyDep)
+		} else {
+			t.Logf("✓ Found %s with version %s", keyDep, version)
+		}
+	}
+
+	// Verify that some dependencies were found with actual version information
+	versionedDependencies := 0
+	for _, dep := range fbom.Dependencies {
+		if dep.Version != "unknown" && dep.Version != "" {
+			versionedDependencies++
+		}
+	}
+
+	if versionedDependencies == 0 {
+		t.Error("Expected at least some dependencies to have version information, but all have 'unknown' or empty versions")
+	} else {
+		t.Logf("✓ Found %d dependencies with version information", versionedDependencies)
+	}
+}
+
+// extractRootPackage extracts the root package name from a full package path
+// e.g., "github.com/gin-gonic/gin/binding" -> "github.com/gin-gonic/gin"
+func extractRootPackage(packageName string) string {
+	// Handle special cases
+	if strings.HasPrefix(packageName, "golang.org/x/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 3 {
+			return strings.Join(parts[:3], "/")
+		}
+	}
+
+	if strings.HasPrefix(packageName, "google.golang.org/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 2 {
+			return strings.Join(parts[:2], "/")
+		}
+	}
+
+	if strings.HasPrefix(packageName, "gopkg.in/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 2 {
+			return strings.Join(parts[:2], "/")
+		}
+	}
+
+	// For GitHub packages: github.com/owner/repo
+	if strings.HasPrefix(packageName, "github.com/") {
+		parts := strings.Split(packageName, "/")
+		if len(parts) >= 3 {
+			return strings.Join(parts[:3], "/")
+		}
+	}
+
+	// Default: return the first component
+	parts := strings.Split(packageName, "/")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+
+	return packageName
+}
+
+// TestExtractRootPackageForVersionLookup tests the root package extraction logic
+func TestExtractRootPackageForVersionLookup(t *testing.T) {
+	generator := NewFBOMGenerator(false)
+
+	tests := []struct {
+		packageName  string
+		expectedRoot string
+	}{
+		{"github.com/gin-gonic/gin", "github.com/gin-gonic/gin"},
+		{"github.com/gin-gonic/gin/binding", "github.com/gin-gonic/gin"}, // subpackage should find root
+		{"github.com/gin-gonic/gin/render", "github.com/gin-gonic/gin"},
+		{"golang.org/x/crypto", "golang.org/x/crypto"},
+		{"golang.org/x/crypto/sha3", "golang.org/x/crypto"},
+		{"golang.org/x/net/http2", "golang.org/x/net"}, // subpackage should find root
+		{"google.golang.org/protobuf", "google.golang.org/protobuf"},
+		{"google.golang.org/protobuf/proto", "google.golang.org/protobuf"},
+		{"gopkg.in/yaml.v2", "gopkg.in/yaml.v2"},
+		{"gopkg.in/yaml.v3", "gopkg.in/yaml.v3"},
+		{"nonexistent/package", "nonexistent/package"}, // should return package as-is for unknown patterns
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.packageName, func(t *testing.T) {
+			root := generator.extractRootPackageForVersionLookup(tt.packageName)
+			if root != tt.expectedRoot {
+				t.Errorf("extractRootPackageForVersionLookup(%q) = %q, want %q", tt.packageName, root, tt.expectedRoot)
+			}
+		})
+	}
+}
