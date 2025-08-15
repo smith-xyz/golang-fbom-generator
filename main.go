@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/cache"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/callgraph"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/output"
@@ -18,13 +19,15 @@ import (
 
 func main() {
 	var (
-		packagePath  = flag.String("package", "", "Go package path to analyze")
-		cveFile      = flag.String("cve", "", "Path to CVE data file (JSON) - optional")
-		verbose      = flag.Bool("v", false, "Verbose output")
-		entryPoints  = flag.String("entry-points", "", "Comma-separated list of additional entry point patterns")
-		algorithm    = flag.String("algo", "rta", "Call graph algorithm (rta, cha, static, vta)")
-		showVersion  = flag.Bool("version", false, "Show version information and exit")
-		generateFBOM = flag.String("generate-fbom", "", "Generate FBOM for specified package (format: package[@version])")
+		packagePath          = flag.String("package", "", "Go package path to analyze")
+		cveFile              = flag.String("cve", "", "Path to CVE data file (JSON) - optional")
+		verbose              = flag.Bool("v", false, "Verbose output")
+		entryPoints          = flag.String("entry-points", "", "Comma-separated list of additional entry point patterns")
+		algorithm            = flag.String("algo", "rta", "Call graph algorithm (rta, cha, static, vta)")
+		showVersion          = flag.Bool("version", false, "Show version information and exit")
+		generateFBOM         = flag.String("generate-fbom", "", "Generate FBOM for specified package (format: package[@version])")
+		generateAllFBOMs     = flag.Bool("generate-all-fboms", false, "Generate FBOMs for all dependencies of the package")
+		generateMissingFBOMs = flag.Bool("generate-missing-fboms", false, "Generate FBOMs only for missing cached dependencies")
 	)
 	flag.Parse()
 
@@ -34,7 +37,7 @@ func main() {
 	}
 
 	// Validate flag combinations
-	if err := validateFlags(*packagePath, *generateFBOM); err != nil {
+	if err := validateFlags(*packagePath, *generateFBOM, *generateAllFBOMs, *generateMissingFBOMs); err != nil {
 		log.Fatalf("Invalid flag combination: %v", err)
 	}
 
@@ -42,6 +45,14 @@ func main() {
 	if *generateFBOM != "" {
 		if err := generateStandaloneFBOM(*generateFBOM, *verbose); err != nil {
 			log.Fatalf("Standalone FBOM generation failed: %v", err)
+		}
+		return
+	}
+
+	// Handle batch FBOM generation
+	if *generateAllFBOMs || *generateMissingFBOMs {
+		if err := generateBatchFBOMs(*packagePath, *generateAllFBOMs, *generateMissingFBOMs, *verbose); err != nil {
+			log.Fatalf("Batch FBOM generation failed: %v", err)
 		}
 		return
 	}
@@ -60,13 +71,27 @@ func main() {
 }
 
 // validateFlags validates the combination of command-line flags
-func validateFlags(packagePath, generateFBOM string) error {
-	if packagePath != "" && generateFBOM != "" {
-		return fmt.Errorf("flags -package and -generate-fbom are mutually exclusive")
+func validateFlags(packagePath, generateFBOM string, generateAllFBOMs, generateMissingFBOMs bool) error {
+	// Check mutually exclusive standalone operations
+	if generateFBOM != "" && (packagePath != "" || generateAllFBOMs || generateMissingFBOMs) {
+		return fmt.Errorf("flag -generate-fbom cannot be used with other flags")
 	}
-	if packagePath == "" && generateFBOM == "" {
-		return fmt.Errorf("must specify either -package or -generate-fbom")
+
+	// Check mutually exclusive batch operations
+	if generateAllFBOMs && generateMissingFBOMs {
+		return fmt.Errorf("flags -generate-all-fboms and -generate-missing-fboms are mutually exclusive")
 	}
+
+	// Require at least one operation
+	if packagePath == "" && generateFBOM == "" && !generateAllFBOMs && !generateMissingFBOMs {
+		return fmt.Errorf("must specify one of: -package, -generate-fbom, -generate-all-fboms, or -generate-missing-fboms")
+	}
+
+	// Batch operations require a package path
+	if (generateAllFBOMs || generateMissingFBOMs) && packagePath == "" {
+		return fmt.Errorf("batch FBOM generation requires -package to specify the project to analyze")
+	}
+
 	return nil
 }
 
@@ -153,6 +178,70 @@ func generateAppFBOM(packagePath, cveFile string, verbose bool, algorithm string
 	if err != nil {
 		return fmt.Errorf("failed to generate FBOM: %w", err)
 	}
+
+	return nil
+}
+
+// generateBatchFBOMs generates FBOMs for all or missing dependencies
+func generateBatchFBOMs(packagePath string, generateAll, generateMissing, verbose bool) error {
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Analyzing dependency tree for: %s\n", packagePath)
+	}
+
+	// Build the dependency tree
+	dependencies, err := cache.BuildDependencyTree(packagePath)
+	if err != nil {
+		return fmt.Errorf("failed to build dependency tree: %w", err)
+	}
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Found %d dependencies\n", len(dependencies))
+	}
+
+	var results []cache.GenerationResult
+	if generateAll {
+		results, err = cache.GenerateAllFBOMs(dependencies)
+	} else if generateMissing {
+		results, err = cache.GenerateMissingFBOMs(dependencies)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to generate FBOMs: %w", err)
+	}
+
+	// Report results
+	successes := 0
+	failures := 0
+	for _, result := range results {
+		if result.Success {
+			successes++
+			if verbose {
+				fmt.Fprintf(os.Stderr, "✓ Generated FBOM for %s\n", result.Dependency.Name)
+			}
+		} else {
+			failures++
+			fmt.Fprintf(os.Stderr, "✗ Failed to generate FBOM for %s: %s\n",
+				result.Dependency.Name, result.Error)
+		}
+	}
+
+	// Summary
+	operationType := "all"
+	if generateMissing {
+		operationType = "missing"
+	}
+
+	fmt.Fprintf(os.Stderr, "\nBatch FBOM generation (%s) completed:\n", operationType)
+	fmt.Fprintf(os.Stderr, "  ✓ Success: %d\n", successes)
+	if failures > 0 {
+		fmt.Fprintf(os.Stderr, "  ✗ Failures: %d\n", failures)
+	}
+	fmt.Fprintf(os.Stderr, "  📁 Cache location: ./fboms/\n")
+
+	// TODO: In Phase 3, report more detailed success information:
+	// TODO: 1. Show actual file paths of generated FBOMs
+	// TODO: 2. Report FBOM file sizes and dependency counts
+	// TODO: 3. Show generation time and performance metrics
 
 	return nil
 }
