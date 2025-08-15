@@ -251,7 +251,7 @@
     },
     "dependency": {
       "type": "object",
-      "required": ["name", "version", "type", "spdx_id", "package_manager", "purl_identifier", "used_functions", "total_functions", "called_functions"],
+      "required": ["name", "version", "type", "spdx_id", "package_manager", "purl_identifier", "used_functions", "called_functions"],
       "properties": {
         "name": {
           "type": "string",
@@ -283,11 +283,6 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of functions used from this dependency"
-        },
-        "total_functions": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Total functions available in dependency"
         },
         "called_functions": {
           "type": "array",

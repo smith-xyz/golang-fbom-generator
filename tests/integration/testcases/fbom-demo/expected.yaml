@@ -4,6 +4,7 @@ description: "Test complex dependency tracking with multiple external packages"
 expectations:
   dependencies:
     - name: "github.com/sirupsen/logrus"
+      used_functions: 10
       called_functions_count: 10
       called_functions:
         - function_name: "SetLevel"

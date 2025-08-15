@@ -6,6 +6,7 @@ expectations:
     - name: "github.com/gin-gonic/gin"
       version: "v1.9.1"
       purl_identifier: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+      used_functions: 6
       called_functions_count: 6
       called_functions:
         - function_name: "Default"
@@ -23,11 +24,14 @@ expectations:
     - name: "gopkg.in/yaml.v2"
       version: "v2.4.0"
       purl_identifier: "pkg:golang/gopkg.in/yaml.v2@v2.4.0"
+      used_functions: 2
       called_functions_count: 2
       called_functions:
         - function_name: "Unmarshal"
           call_context: "direct"
           call_sites_contain: "loadConfig"
+        - function_name: "init"
+          call_context: "direct"
       has_fbom_reference: true
 
   functions:

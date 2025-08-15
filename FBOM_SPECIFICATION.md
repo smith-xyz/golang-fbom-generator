@@ -164,7 +164,6 @@ External dependencies (third-party packages) used by the application.
   "package_manager": "string",      // Package manager (e.g., "go-modules")
   "purl_identifier": "string",      // Package URL (PURL) identifier
   "used_functions": "number",       // Number of functions used from this dependency
-  "total_functions": "number",      // Total functions available in dependency
   "called_functions": [ ... ],      // Functions called from this dependency
   "fbom_reference": { ... }         // Reference to dependency's FBOM (if available)
 }
@@ -361,7 +360,6 @@ Security analysis summary and metrics.
       "package_manager": "go-modules",
       "purl_identifier": "pkg:golang/github.com/gin-gonic/gin@v1.9.1",
       "used_functions": 3,
-      "total_functions": 245,
       "called_functions": [
         {
           "function_name": "Default",

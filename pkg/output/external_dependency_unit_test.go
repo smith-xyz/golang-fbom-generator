@@ -62,7 +62,6 @@ func TestExternalDependencyDataStructures(t *testing.T) {
 		SPDXId:         "SPDXRef-Package-github-com-gin-gonic-gin",
 		PackageManager: "go",
 		UsedFunctions:  2,
-		TotalFunctions: 247,
 		FBOMReference: &ExternalFBOMReference{
 			FBOMLocation:   "./fboms/github-com-gin-gonic-gin.fbom.json",
 			FBOMVersion:    "0.1.0",

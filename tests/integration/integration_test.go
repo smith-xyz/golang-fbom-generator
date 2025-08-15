@@ -29,6 +29,7 @@ type ExpectedDependency struct {
 	Name                 string                 `yaml:"name"`
 	Version              string                 `yaml:"version"`
 	PurlIdentifier       string                 `yaml:"purl_identifier"`
+	UsedFunctions        int                    `yaml:"used_functions"`
 	CalledFunctionsCount int                    `yaml:"called_functions_count"`
 	CalledFunctions      []ExpectedFunctionCall `yaml:"called_functions"`
 	HasFBOMReference     bool                   `yaml:"has_fbom_reference"`
@@ -96,6 +97,7 @@ type Dependency struct {
 	Name            string                 `json:"name"`
 	Version         string                 `json:"version"`
 	PurlIdentifier  string                 `json:"purl_identifier"`
+	UsedFunctions   int                    `json:"used_functions"`
 	CalledFunctions []ExternalFunctionCall `json:"called_functions"`
 	FBOMReference   *FBOMReference         `json:"fbom_reference"`
 }
@@ -239,6 +241,12 @@ func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectatio
 				if expectedDep.PurlIdentifier != "" && actualDep.PurlIdentifier != expectedDep.PurlIdentifier {
 					t.Errorf("Dependency %s: expected PURL identifier '%s', got '%s'",
 						expectedDep.Name, expectedDep.PurlIdentifier, actualDep.PurlIdentifier)
+				}
+
+				// Check used functions count
+				if expectedDep.UsedFunctions > 0 && actualDep.UsedFunctions != expectedDep.UsedFunctions {
+					t.Errorf("Dependency %s: expected UsedFunctions %d, got %d",
+						expectedDep.Name, expectedDep.UsedFunctions, actualDep.UsedFunctions)
 				}
 
 				// Check FBOM reference

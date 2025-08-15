@@ -178,7 +178,6 @@ type Dependency struct {
 	PackageManager  string                 `json:"package_manager"`
 	PurlIdentifier  string                 `json:"purl_identifier"`
 	UsedFunctions   int                    `json:"used_functions"`
-	TotalFunctions  int                    `json:"total_functions"`
 	FBOMReference   *ExternalFBOMReference `json:"fbom_reference,omitempty"`
 	CalledFunctions []ExternalFunctionCall `json:"called_functions,omitempty"`
 }
@@ -1455,14 +1454,12 @@ func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Fu
 				SPDXId:         fmt.Sprintf("SPDXRef-Package-%s", strings.ReplaceAll(pkg, "/", "-")),
 				PackageManager: "go",
 				PurlIdentifier: g.generatePurlIdentifier(pkg, version),
-				UsedFunctions:  0,
-				TotalFunctions: 0,
+				UsedFunctions:  0, // Will be calculated after CalledFunctions is set
 			}
 
 			// Add FBOM reference if external calls exist for this package
 			if calledFunctions, exists := externalCallMap[pkg]; exists {
 				dep.CalledFunctions = calledFunctions
-				dep.UsedFunctions = len(calledFunctions)
 
 				// Add FBOM reference
 				dep.FBOMReference = &ExternalFBOMReference{
@@ -1472,6 +1469,9 @@ func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Fu
 					SPDXDocumentId: fmt.Sprintf("SPDXRef-Document-%s", strings.ReplaceAll(pkg, "/", "-")),
 				}
 			}
+
+			// Calculate function counts (used and total)
+			g.calculateFunctionCounts(&dep)
 
 			deps = append(deps, dep)
 		}
@@ -1630,4 +1630,19 @@ func (g *FBOMGenerator) generatePurlIdentifier(packageName, version string) stri
 	// Generate PURL in the format: pkg:golang/namespace/name@version
 	// For Go modules, the namespace and name are combined as the full module path
 	return fmt.Sprintf("pkg:golang/%s@%s", rootPackage, version)
+}
+
+// calculateFunctionCounts calculates and sets the used_functions for a dependency
+func (g *FBOMGenerator) calculateFunctionCounts(dep *Dependency) {
+	// Calculate used functions: count unique function names in CalledFunctions
+	uniqueFunctions := make(map[string]bool)
+	for _, fn := range dep.CalledFunctions {
+		uniqueFunctions[fn.FunctionName] = true
+	}
+	dep.UsedFunctions = len(uniqueFunctions)
+
+	g.logger.Debug("Calculated function counts for dependency",
+		"package", dep.Name,
+		"used_functions", dep.UsedFunctions,
+		"called_functions", len(dep.CalledFunctions))
 }
