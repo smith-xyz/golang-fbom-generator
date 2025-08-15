@@ -1,0 +1,69 @@
+test_name: "FBOM Demo - Complex Dependencies"
+description: "Test complex dependency tracking with multiple external packages"
+
+expectations:
+  dependencies:
+    - name: "github.com/sirupsen/logrus"
+      used_functions: 10
+      called_functions_count: 10
+      called_functions:
+        - function_name: "SetLevel"
+          call_context: "direct"
+        - function_name: "Debug"
+          call_context: "direct"
+        - function_name: "Info"
+          call_context: "direct"
+        - function_name: "Fatalf"
+          call_context: "direct"
+
+  functions:
+    - name: "main"
+      has_external_calls: true
+      stdlib_calls_contain: ["flag.String", "flag.Int", "flag.Bool", "flag.Parse"]
+      external_calls_contain: ["github.com/sirupsen/logrus"]
+      
+    - name: "demoSecurityScenarios"
+      has_external_calls: false
+      
+    - name: "runServer"
+      has_external_calls: true
+
+  security_info:
+    reflection_calls_count: 4
+    external_dependencies_count: 74
+    total_functions_count: 159
+    user_functions_count: 159
+
+  dependency_clusters:
+    - name: "github.com/gin-gonic/gin"
+      min_entry_points: 20
+      min_blast_radius: 100
+      entry_points_contain:
+        - function: "Default"
+        - function: "GET"
+        - function: "POST"
+        
+    - name: "github.com/sirupsen/logrus"
+      min_entry_points: 5
+      min_blast_radius: 40
+      entry_points_contain:
+        - function: "Info"
+        - function: "Error"
+
+assertions:
+  - type: "dependency_exists"
+    name: "github.com/sirupsen/logrus"
+    
+  - type: "function_called"
+    dependency: "github.com/sirupsen/logrus"
+    function: "Info"
+    
+  - type: "function_exists"
+    name: "main"
+    
+  - type: "function_exists"
+    name: "demoSecurityScenarios"
+    
+  - type: "stdlib_call_exists"
+    function: "main"
+    stdlib_call: "flag.Parse"

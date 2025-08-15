@@ -1,0 +1,174 @@
+{
+  "cves": [
+    {
+      "id": "CVE-2023-12345",
+      "vulnerable_package": "github.com/gin-gonic/gin",
+      "vulnerable_functions": ["Context.AbortWithError", "Context.Redirect"],
+      "original_severity": "High",
+      "cvss_score": 7.5,
+      "description": "Path traversal vulnerability in Gin HTTP framework allowing unauthorized access to files",
+      "references": [
+        "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-12345",
+        "https://github.com/gin-gonic/gin/security/advisories"
+      ],
+      "metadata": {
+        "jira_key": "SEC-1001",
+        "jira_assignee": "web-team",
+        "jira_due_date": "2024-01-15"
+      }
+    },
+    {
+      "id": "CVE-2023-23456",
+      "vulnerable_package": "crypto/tls",
+      "vulnerable_functions": ["DialContext", "DialWithDialer"],
+      "original_severity": "Critical",
+      "cvss_score": 9.1,
+      "description": "TLS certificate validation bypass in Go's crypto/tls package",
+      "references": [
+        "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-23456"
+      ],
+      "metadata": {
+        "jira_key": "SEC-1002",
+        "jira_assignee": "platform-team",
+        "jira_due_date": "2024-01-10"
+      }
+    },
+    {
+      "id": "CVE-2023-34567",
+      "vulnerable_package": "github.com/gorilla/websocket",
+      "original_severity": "Medium",
+      "cvss_score": 5.3,
+      "description": "Memory leak in WebSocket implementation during high connection volume",
+      "references": [
+        "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-34567"
+      ],
+      "metadata": {
+        "jira_key": "SEC-1003",
+        "jira_assignee": "backend-team",
+        "jira_due_date": "2024-02-01"
+      }
+    },
+    {
+      "id": "CVE-2023-45678",
+      "vulnerable_package": "gopkg.in/yaml.v2",
+      "vulnerable_functions": ["Unmarshal", "UnmarshalStrict"],
+      "original_severity": "High",
+      "cvss_score": 8.2,
+      "description": "YAML deserialization vulnerability allowing code execution",
+      "references": [
+        "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-45678"
+      ],
+      "metadata": {
+        "jira_key": "SEC-1004",
+        "jira_assignee": "data-team",
+        "jira_due_date": "2024-01-20"
+      }
+    },
+    {
+      "id": "CVE-2023-56789",
+      "vulnerable_package": "github.com/deep/unused/lib",
+      "vulnerable_functions": ["ProcessData", "ValidateInput"],
+      "original_severity": "Critical",
+      "cvss_score": 9.5,
+      "description": "Remote code execution in data processing library",
+      "references": [
+        "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-56789"
+      ],
+      "metadata": {
+        "jira_key": "SEC-1005",
+        "jira_assignee": "security-team",
+        "jira_due_date": "2024-01-05"
+      }
+    },
+    {
+      "id": "CVE-2023-45283",
+      "vulnerable_package": "github.com/gin-gonic/gin",
+      "vulnerable_functions": ["Context.FileFromFS", "Context.File"],
+      "original_severity": "High",
+      "cvss_score": 7.5,
+      "description": "Path traversal vulnerability in static file serving",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-45283"]
+    },
+    {
+      "id": "CVE-2023-45284",
+      "vulnerable_package": "gopkg.in/yaml.v2",
+      "vulnerable_functions": ["Unmarshal", "Decode"],
+      "original_severity": "Critical",
+      "cvss_score": 9.8,
+      "description": "YAML parsing vulnerability allowing code execution",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-45284"]
+    },
+    {
+      "id": "CVE-2023-39325",
+      "vulnerable_package": "golang.org/x/crypto",
+      "vulnerable_functions": ["bcrypt.GenerateFromPassword"],
+      "original_severity": "Medium",
+      "cvss_score": 5.3,
+      "description": "Weak random number generation in password hashing",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-39325"]
+    },
+    {
+      "id": "CVE-2023-44487",
+      "vulnerable_package": "github.com/gorilla/websocket",
+      "vulnerable_functions": ["Conn.WriteMessage", "Conn.ReadMessage"],
+      "original_severity": "High",
+      "cvss_score": 7.2,
+      "description": "WebSocket protocol vulnerability allowing DoS",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-44487"]
+    },
+    {
+      "id": "CVE-2023-39318",
+      "vulnerable_package": "github.com/golang-jwt/jwt",
+      "vulnerable_functions": ["Parse", "ParseWithClaims"],
+      "original_severity": "Critical",
+      "cvss_score": 9.1,
+      "description": "JWT signature bypass vulnerability",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-39318"]
+    },
+    {
+      "id": "CVE-2023-39319",
+      "vulnerable_package": "github.com/go-sql-driver/mysql",
+      "vulnerable_functions": ["Open", "Connect"],
+      "original_severity": "Medium",
+      "cvss_score": 6.1,
+      "description": "SQL connection string parsing vulnerability",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-39319"]
+    },
+    {
+      "id": "CVE-2023-29406",
+      "vulnerable_package": "github.com/sirupsen/logrus",
+      "vulnerable_functions": ["TextFormatter.Format", "JSONFormatter.Format"],
+      "original_severity": "Low",
+      "cvss_score": 3.1,
+      "description": "Log injection vulnerability in formatting",
+      "references": ["https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-29406"]
+    },
+    {
+      "id": "CVE-2023-DEMO-001",
+      "vulnerable_package": "fbom-demo/pkg/security",
+      "vulnerable_functions": ["WeakEncryption", "LegacyMD5Hash"],
+      "original_severity": "High",
+      "cvss_score": 8.2,
+      "description": "Demo: Weak cryptographic functions still present in codebase",
+      "references": ["https://example.com/demo-cve-001"]
+    },
+    {
+      "id": "CVE-2023-DEMO-002",
+      "vulnerable_package": "fbom-demo/internal/legacy",
+      "vulnerable_functions": ["parseXMLData", "ImportFromXMLFile"],
+      "original_severity": "Critical",
+      "cvss_score": 9.3,
+      "description": "Demo: XML External Entity (XXE) vulnerability in legacy import",
+      "references": ["https://example.com/demo-cve-002"]
+    },
+    {
+      "id": "CVE-2023-DEMO-003",
+      "vulnerable_package": "fbom-demo/pkg/analytics",
+      "vulnerable_functions": ["InvokeAnalyticsMethod", "TrackObjectChanges"],
+      "original_severity": "Medium",
+      "cvss_score": 6.8,
+      "description": "Demo: Reflection-based vulnerabilities in analytics module",
+      "references": ["https://example.com/demo-cve-003"]
+    }
+  ]
+} 

@@ -1,0 +1,55 @@
+test_name: "Hello World - Simple Program"
+description: "Test basic function tracking with minimal dependencies"
+
+expectations:
+  dependencies: []  # No external dependencies expected
+
+  functions:
+    - name: "main"
+      has_external_calls: false
+      stdlib_calls_contain: ["fmt.Println", "os.Exit"]
+      
+    - name: "sum"
+      has_external_calls: false
+      stdlib_calls_contain: []
+      
+    - name: "multiplication"
+      has_external_calls: false
+      stdlib_calls_contain: []
+      
+    - name: "transitiveMultiplication"
+      has_external_calls: false
+      stdlib_calls_contain: []
+
+  security_info:
+    reflection_calls_count: 0
+    external_dependencies_count: 0
+    total_functions_count: 6  # Should be exactly 6 user functions
+    user_functions_count: 6   # All functions should be user-defined after proper filtering
+
+  dependency_clusters:
+    - name: "fmt"
+      min_entry_points: 1
+      min_blast_radius: 30
+      entry_points_contain:
+        - function: "Println"
+
+assertions:
+  - type: "no_external_dependencies"
+    
+  - type: "function_exists"
+    name: "main"
+    
+  - type: "function_exists"
+    name: "sum"
+    
+  - type: "function_exists"
+    name: "multiplication"
+    
+  - type: "stdlib_call_exists"
+    function: "main"
+    stdlib_call: "fmt.Println"
+    
+  - type: "function_calls_function"
+    caller: "multiplication"
+    callee: "transitiveMultiplication"

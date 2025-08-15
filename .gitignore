@@ -1,0 +1,41 @@
+# Binaries
+golang-fbom-generator
+golang-fbom-generator.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+*.out
+coverage.html
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local environment
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+tmp/
+
+# Logs
+*.log
+
+*.fbom*
