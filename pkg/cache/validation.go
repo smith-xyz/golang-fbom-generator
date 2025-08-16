@@ -204,11 +204,11 @@ func GenerateCacheMissReport(misses []CacheMissReport) string {
 func CreateCacheMissReport(packageName, version string, isStdlib bool) CacheMissReport {
 	var suggestedCommand string
 	if isStdlib {
-		suggestedCommand = fmt.Sprintf("golang-fbom-generator -generate-fbom %s", packageName)
+		suggestedCommand = fmt.Sprintf("golang-fbom-generator -package %s", packageName)
 	} else if version != "" && version != "unknown" {
-		suggestedCommand = fmt.Sprintf("golang-fbom-generator -generate-fbom %s@%s", packageName, version)
+		suggestedCommand = fmt.Sprintf("golang-fbom-generator -package %s@%s", packageName, version)
 	} else {
-		suggestedCommand = fmt.Sprintf("golang-fbom-generator -generate-fbom %s", packageName)
+		suggestedCommand = fmt.Sprintf("golang-fbom-generator -package %s", packageName)
 	}
 
 	return CacheMissReport{

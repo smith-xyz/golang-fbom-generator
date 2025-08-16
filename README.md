@@ -33,23 +33,22 @@ golang-fbom-generator -package . -cve cve-data.json
 golang-fbom-generator -package . -v
 
 # Generate FBOM for external dependency
-golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1
 
 # Generate FBOM for standard library package
-golang-fbom-generator -generate-fbom fmt
+golang-fbom-generator -package fmt
 ```
 
 ### Command Line Options
 
-- `-package`: Go package path to analyze (default: ".")
-- `-generate-fbom`: Generate FBOM for specified package (format: `package[@version]`)
+- `-package`: Go package path to analyze - supports local (`.`), external (`github.com/gin-gonic/gin@v1.9.1`), or stdlib (`fmt`) packages
 - `-cve`: Path to CVE data file (JSON) - optional
 - `-v`: Verbose output
 - `-entry-points`: Comma-separated list of additional entry point patterns
 - `-algo`: Call graph algorithm to use: `rta`, `cha`, `static`, `vta` (default: "rta")
 - `-version`: Show version information
 
-**Note**: The `-package` and `-generate-fbom` flags are mutually exclusive.
+**Note**: The `-package` flag can analyze any type of package - local, external, or standard library.
 
 ## Output Format
 
@@ -103,13 +102,13 @@ The tool supports generating and caching FBOMs for individual packages:
 
 ```bash
 # Generate FBOM for external package with specific version
-golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1
 
 # Generate FBOM for external package (latest version auto-resolved)
-golang-fbom-generator -generate-fbom github.com/sirupsen/logrus
+golang-fbom-generator -package github.com/sirupsen/logrus
 
 # Generate FBOM for standard library package
-golang-fbom-generator -generate-fbom net/http
+golang-fbom-generator -package net/http
 ```
 
 Generated FBOMs are saved to the local `./fboms/` directory for reuse and reference.

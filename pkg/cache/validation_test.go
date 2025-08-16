@@ -295,19 +295,19 @@ func TestGenerateCacheMissReport(t *testing.T) {
 				PackageName:      "github.com/gin-gonic/gin",
 				Version:          "v1.9.1",
 				IsStdlib:         false,
-				SuggestedCommand: "golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1",
+				SuggestedCommand: "golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1",
 			},
 			{
 				PackageName:      "fmt",
 				Version:          "go1.21.0",
 				IsStdlib:         true,
-				SuggestedCommand: "golang-fbom-generator -generate-fbom fmt",
+				SuggestedCommand: "golang-fbom-generator -package fmt",
 			},
 			{
 				PackageName:      "github.com/sirupsen/logrus",
 				Version:          "unknown",
 				IsStdlib:         false,
-				SuggestedCommand: "golang-fbom-generator -generate-fbom github.com/sirupsen/logrus",
+				SuggestedCommand: "golang-fbom-generator -package github.com/sirupsen/logrus",
 			},
 		}
 
@@ -325,7 +325,7 @@ func TestGenerateCacheMissReport(t *testing.T) {
 		if !strings.Contains(report, "2 external, 1 stdlib") {
 			t.Error("Expected summary with correct counts")
 		}
-		if !strings.Contains(report, "golang-fbom-generator -generate-fbom") {
+		if !strings.Contains(report, "golang-fbom-generator -package") {
 			t.Error("Expected suggested commands in report")
 		}
 	})
@@ -344,28 +344,28 @@ func TestCreateCacheMissReport(t *testing.T) {
 			packageName:     "github.com/gin-gonic/gin",
 			version:         "v1.9.1",
 			isStdlib:        false,
-			expectedCommand: "golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1",
+			expectedCommand: "golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1",
 		},
 		{
 			name:            "External package without version",
 			packageName:     "github.com/sirupsen/logrus",
 			version:         "",
 			isStdlib:        false,
-			expectedCommand: "golang-fbom-generator -generate-fbom github.com/sirupsen/logrus",
+			expectedCommand: "golang-fbom-generator -package github.com/sirupsen/logrus",
 		},
 		{
 			name:            "External package with unknown version",
 			packageName:     "github.com/unknown/pkg",
 			version:         "unknown",
 			isStdlib:        false,
-			expectedCommand: "golang-fbom-generator -generate-fbom github.com/unknown/pkg",
+			expectedCommand: "golang-fbom-generator -package github.com/unknown/pkg",
 		},
 		{
 			name:            "Stdlib package",
 			packageName:     "fmt",
 			version:         "go1.21.0",
 			isStdlib:        true,
-			expectedCommand: "golang-fbom-generator -generate-fbom fmt",
+			expectedCommand: "golang-fbom-generator -package fmt",
 		},
 	}
 

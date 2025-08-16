@@ -241,9 +241,9 @@ In verbose mode (`-v`), the generator reports missing FBOMs with suggested gener
 📋 Cache Miss Report: 2 missing FBOMs
 ==================================================
 📦 github.com/gin-gonic/gin@v1.9.1
-   💡 golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1
+   💡 golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1
 📦 fmt
-   💡 golang-fbom-generator -generate-fbom fmt
+   💡 golang-fbom-generator -package fmt
 ```
 
 ### 4. Entry Points Array

@@ -240,13 +240,13 @@ func TestFBOMGeneratorCacheMissReporting(t *testing.T) {
 				PackageName:      "github.com/gin-gonic/gin",
 				Version:          "v1.9.1",
 				IsStdlib:         false,
-				SuggestedCommand: "golang-fbom-generator -generate-fbom github.com/gin-gonic/gin@v1.9.1",
+				SuggestedCommand: "golang-fbom-generator -package github.com/gin-gonic/gin@v1.9.1",
 			},
 			{
 				PackageName:      "fmt",
 				Version:          "go1.21.0",
 				IsStdlib:         true,
-				SuggestedCommand: "golang-fbom-generator -generate-fbom fmt",
+				SuggestedCommand: "golang-fbom-generator -package fmt",
 			},
 		}
 
@@ -261,7 +261,7 @@ func TestFBOMGeneratorCacheMissReporting(t *testing.T) {
 		if !strings.Contains(report, "Cache Miss Report") {
 			t.Error("Expected cache miss report header")
 		}
-		if !strings.Contains(report, "golang-fbom-generator -generate-fbom") {
+		if !strings.Contains(report, "golang-fbom-generator -package") {
 			t.Error("Expected suggested commands in report")
 		}
 		if !strings.Contains(report, "github.com/gin-gonic/gin@v1.9.1") {

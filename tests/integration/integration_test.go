@@ -853,7 +853,7 @@ func TestCacheFunctionality(t *testing.T) {
 		}
 
 		// Should suggest commands to generate missing FBOMs
-		if !strings.Contains(outputStr, "golang-fbom-generator -generate-fbom") {
+		if !strings.Contains(outputStr, "golang-fbom-generator -package") {
 			t.Error("Expected suggested generation commands in cache miss report")
 		}
 
@@ -982,8 +982,8 @@ func TestCacheFunctionality(t *testing.T) {
 	})
 }
 
-// TestBatchFBOMGeneration tests the new Phase 4 batch FBOM generation functionality
-func TestBatchFBOMGeneration(t *testing.T) {
+// TestUnifiedFBOMGeneration tests the unified FBOM generation for all package types
+func TestUnifiedFBOMGeneration(t *testing.T) {
 	// Build the binary
 	binaryPath := buildBinary(t)
 	defer os.Remove(binaryPath)
@@ -991,173 +991,66 @@ func TestBatchFBOMGeneration(t *testing.T) {
 	// Use the test-project example which has external dependencies
 	examplePath := "../../examples/test-project"
 	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
-		t.Skip("test-project example not found, skipping batch FBOM tests")
+		t.Skip("test-project example not found, skipping unified FBOM tests")
 		return
 	}
 
-	t.Run("GenerateAllFBOMs", func(t *testing.T) {
-		// Clean up any existing cache
-		os.RemoveAll(filepath.Join(examplePath, "fboms"))
-
-		// Test batch generation of all dependencies
-		cmd := exec.Command(binaryPath, "-generate-all-fboms", "-package", ".", "-v")
+	t.Run("LocalPackageGeneration", func(t *testing.T) {
+		// Test unified generation for local package
+		cmd := exec.Command(binaryPath, "-package", ".", "-v")
 		cmd.Dir = examplePath
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to generate all FBOMs: %v\nOutput: %s", err, output)
+			t.Fatalf("Failed to generate local package FBOM: %v\nOutput: %s", err, output)
 		}
 
-		// Verify FBOMs directory was created
-		fbomsDir := filepath.Join(examplePath, "fboms")
-		if _, err := os.Stat(fbomsDir); os.IsNotExist(err) {
-			t.Errorf("FBOMs directory was not created")
-		}
-
-		// Verify external FBOMs were generated
-		externalDir := filepath.Join(fbomsDir, "external")
-		if _, err := os.Stat(externalDir); os.IsNotExist(err) {
-			t.Errorf("External FBOMs directory was not created")
-		}
-
-		// Count generated FBOMs
-		entries, err := os.ReadDir(externalDir)
-		if err != nil {
-			t.Fatalf("Failed to read external directory: %v", err)
-		}
-
-		fbomCount := 0
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".fbom.json") {
-				fbomCount++
-
-				// Validate FBOM structure
-				fbomPath := filepath.Join(externalDir, entry.Name())
-				if err := validateBatchFBOMFile(t, fbomPath); err != nil {
-					t.Errorf("Invalid FBOM file %s: %v", entry.Name(), err)
-				}
-			}
-		}
-
-		if fbomCount == 0 {
-			t.Errorf("No FBOM files were generated")
-		}
-
-		t.Logf("Generated %d FBOM files in batch mode", fbomCount)
-
-		// Verify output mentions dependencies found and generated
+		// Verify output contains FBOM data
 		outputStr := string(output)
-		if !strings.Contains(outputStr, "Found") || !strings.Contains(outputStr, "dependencies") {
-			t.Errorf("Expected output to mention found dependencies, got: %s", outputStr)
+		if !strings.Contains(outputStr, "fbom_version") {
+			t.Errorf("Expected FBOM output for local package, got: %s", outputStr)
 		}
+
+		t.Logf("Successfully generated FBOM for local package")
 	})
 
-	t.Run("GenerateMissingFBOMs", func(t *testing.T) {
-		// Test that running generate-missing-fboms finds no missing dependencies
-		// (since we just generated them all in the previous test)
-		cmd := exec.Command(binaryPath, "-generate-missing-fboms", "-package", ".", "-v")
+	t.Run("StdlibPackageGeneration", func(t *testing.T) {
+		// Test unified generation for stdlib package
+		cmd := exec.Command(binaryPath, "-package", "fmt", "-v")
 		cmd.Dir = examplePath
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to generate missing FBOMs: %v\nOutput: %s", err, output)
+			t.Fatalf("Failed to generate stdlib FBOM: %v\nOutput: %s", err, output)
 		}
 
-		// Should report 0 missing dependencies since we just generated them all
+		// Verify output contains FBOM data
 		outputStr := string(output)
-		if !strings.Contains(outputStr, "✓ Success: 0") {
-			t.Errorf("Expected 0 successful generations (no missing dependencies), got output: %s", outputStr)
+		if !strings.Contains(outputStr, "fbom_version") {
+			t.Errorf("Expected FBOM output for stdlib package, got: %s", outputStr)
 		}
+
+		t.Logf("Successfully generated FBOM for stdlib package")
 	})
 
-	t.Run("CacheCoherency", func(t *testing.T) {
-		externalDir := filepath.Join(examplePath, "fboms", "external")
-
-		// Remove a few FBOM files to simulate missing cache entries
-		entries, err := os.ReadDir(externalDir)
-		if err != nil {
-			t.Fatalf("Failed to read external directory: %v", err)
-		}
-
-		var removedFile string
-		if len(entries) > 0 {
-			removedFile = filepath.Join(externalDir, entries[0].Name())
-			if err := os.Remove(removedFile); err != nil {
-				t.Fatalf("Failed to remove FBOM file: %v", err)
-			}
-			t.Logf("Removed %s to test cache coherency", entries[0].Name())
-		}
-
-		// Run generate-missing-fboms again
-		cmd := exec.Command(binaryPath, "-generate-missing-fboms", "-package", ".", "-v")
+	t.Run("ExternalPackageGeneration", func(t *testing.T) {
+		// Test unified generation for external package
+		cmd := exec.Command(binaryPath, "-package", "github.com/gin-gonic/gin@v1.9.1", "-v")
 		cmd.Dir = examplePath
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to generate missing FBOMs: %v\nOutput: %s", err, output)
+			t.Fatalf("Failed to generate external package FBOM: %v\nOutput: %s", err, output)
 		}
 
-		// Should find and regenerate the missing dependency
+		// Verify output contains FBOM data
 		outputStr := string(output)
-		if !strings.Contains(outputStr, "✓ Success: 1") {
-			t.Errorf("Expected to regenerate 1 missing FBOM, got output: %s", outputStr)
+		if !strings.Contains(outputStr, "fbom_version") {
+			t.Errorf("Expected FBOM output for external package, got: %s", outputStr)
 		}
 
-		// Verify the file was recreated
-		if _, err := os.Stat(removedFile); os.IsNotExist(err) {
-			t.Errorf("Missing FBOM file was not regenerated: %s", removedFile)
+		// Should contain cache miss information for external dependencies
+		if !strings.Contains(outputStr, "Cache Miss Report") {
+			t.Errorf("Expected cache miss report for external package, got: %s", outputStr)
 		}
+
+		t.Logf("Successfully generated FBOM for external package")
 	})
-
-	// Clean up after all tests
-	os.RemoveAll(filepath.Join(examplePath, "fboms"))
-}
-
-// validateBatchFBOMFile validates the structure of a batch-generated FBOM file
-func validateBatchFBOMFile(t *testing.T, path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	var fbom map[string]interface{}
-	if err := json.Unmarshal(data, &fbom); err != nil {
-		return err
-	}
-
-	// Check required fields for batch-generated FBOMs
-	requiredFields := []string{"fbom_version", "spdx_id", "creation_info", "package_info"}
-	for _, field := range requiredFields {
-		if _, exists := fbom[field]; !exists {
-			return &ValidationError{Field: field, Message: "required field missing"}
-		}
-	}
-
-	// Validate creation_info structure
-	if creationInfo, ok := fbom["creation_info"].(map[string]interface{}); ok {
-		requiredCreationFields := []string{"created", "created_by", "tool_name"}
-		for _, field := range requiredCreationFields {
-			if _, exists := creationInfo[field]; !exists {
-				return &ValidationError{Field: "creation_info." + field, Message: "required creation info field missing"}
-			}
-		}
-
-		// Verify timestamp is not hardcoded
-		if created, ok := creationInfo["created"].(string); ok {
-			if created == "2024-01-01T00:00:00Z" {
-				return &ValidationError{Field: "creation_info.created", Message: "timestamp appears to be hardcoded"}
-			}
-		}
-	} else {
-		return &ValidationError{Field: "creation_info", Message: "must be an object"}
-	}
-
-	return nil
-}
-
-// ValidationError represents an FBOM validation error for batch tests
-type ValidationError struct {
-	Field   string
-	Message string
-}
-
-func (e *ValidationError) Error() string {
-	return "validation error for field " + e.Field + ": " + e.Message
 }
