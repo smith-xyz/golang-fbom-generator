@@ -384,6 +384,12 @@ func main() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -425,6 +431,12 @@ func notCalled() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -481,6 +493,12 @@ func transitiveCall() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -530,6 +548,11 @@ func helper() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -600,6 +623,12 @@ func notCalled() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -670,6 +699,12 @@ func notCalled() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -722,6 +757,12 @@ func notCalled() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -777,6 +818,12 @@ func notCalled() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -845,6 +892,12 @@ func (s *Server) initialize() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -926,6 +979,12 @@ func CheckTokenExpiry() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -988,6 +1047,12 @@ func anotherUnusedFunction(x int) string {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1067,6 +1132,12 @@ func main() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1149,6 +1220,12 @@ func HashPassword(password string) string {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1318,6 +1395,12 @@ func unreachableFunction() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1436,6 +1519,12 @@ func packageFunction() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1560,6 +1649,12 @@ func (s *Server) handleRequest() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1695,6 +1790,12 @@ func dummyFunction() bool {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1820,6 +1921,12 @@ func anotherHelper() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -1962,6 +2069,12 @@ func dummyFunction() {
 `
 
 	generator := NewFBOMGenerator(false)
+
+	// For testing, set the context to treat 'testmodule' as the local project
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
 		t.Fatalf("Failed to build call graph: %v", err)
@@ -2520,7 +2633,11 @@ func TestHasVendorDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get current directory: %v", err)
 		}
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: failed to restore directory: %v", err)
+			}
+		}()
 
 		err = os.Chdir(tempDir)
 		if err != nil {
@@ -2547,7 +2664,11 @@ func TestHasVendorDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get current directory: %v", err)
 		}
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: failed to restore directory: %v", err)
+			}
+		}()
 
 		err = os.Chdir(tempDir)
 		if err != nil {
@@ -2574,7 +2695,11 @@ func TestHasVendorDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get current directory: %v", err)
 		}
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: failed to restore directory: %v", err)
+			}
+		}()
 
 		err = os.Chdir(tempDir)
 		if err != nil {
@@ -2604,7 +2729,11 @@ func TestGetModuleVersionsWithVendor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get current directory: %v", err)
 		}
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: failed to restore directory: %v", err)
+			}
+		}()
 
 		err = os.Chdir(tempDir)
 		if err != nil {
@@ -2647,7 +2776,11 @@ func TestGetModuleVersionsIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get current directory: %v", err)
 		}
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: failed to restore directory: %v", err)
+			}
+		}()
 
 		err = os.Chdir(tempDir)
 		if err != nil {

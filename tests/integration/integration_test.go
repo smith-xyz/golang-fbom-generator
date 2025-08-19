@@ -215,6 +215,20 @@ func runTestCase(t *testing.T, binaryPath, testCaseName string) {
 		t.Fatalf("Example project not found: %s", examplePath)
 	}
 
+	// Read the go.mod file to determine the root module name
+	goModPath := filepath.Join(examplePath, "go.mod")
+	rootModuleName := ""
+	if goModData, err := os.ReadFile(goModPath); err == nil {
+		lines := strings.Split(string(goModData), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "module ") {
+				rootModuleName = strings.TrimSpace(strings.TrimPrefix(line, "module "))
+				break
+			}
+		}
+	}
+
 	// Run the binary on the example project
 	cmd := exec.Command(binaryPath, "-package", ".")
 	cmd.Dir = examplePath // Set working directory to the example project
@@ -240,15 +254,15 @@ func runTestCase(t *testing.T, binaryPath, testCaseName string) {
 	}
 
 	// Validate expectations
-	validateExpectations(t, &fbom, &expectations)
+	validateExpectations(t, &fbom, &expectations, rootModuleName)
 
 	// Run assertions
 	runAssertions(t, &fbom, expectations.Assertions)
 
-	t.Logf("✓ Test case '%s' passed all validations", expectations.TestName)
+	t.Logf("Test case '%s' passed all validations", expectations.TestName)
 }
 
-func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectation) {
+func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectation, rootModuleName string) {
 	// Validate dependencies
 	for _, expectedDep := range expectations.Expectations.Dependencies {
 		found := false
@@ -390,7 +404,13 @@ func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectatio
 	userFunctionCount := 0
 	for _, fn := range fbom.Functions {
 		// Count functions that are user-defined (not stdlib or dependencies)
-		if !isStandardLibraryPackage(fn.Package) && !isDependencyPackage(fn.Package) {
+		// A function is user-defined if:
+		// 1. It's not from standard library
+		// 2. It's not from an external dependency OR it's from the root module being analyzed
+		isUserDefined := !isStandardLibraryPackage(fn.Package) &&
+			(!isDependencyPackage(fn.Package) || isFromRootModule(fn.Package, rootModuleName))
+
+		if isUserDefined {
 			userFunctionCount++
 		}
 	}
@@ -604,6 +624,43 @@ func runAssertions(t *testing.T, fbom *FBOM, assertions []Assertion) {
 				t.Errorf("Assertion failed: function '%s' should call function '%s'", assertion.Caller, assertion.Callee)
 			}
 
+		case "vendor_dependency_handling":
+			// Ensure vendor packages are detected and handled correctly
+			vendorDepsFound := 0
+			for _, dep := range fbom.Dependencies {
+				if strings.Contains(dep.Name, "vendor/") {
+					vendorDepsFound++
+				}
+			}
+			if vendorDepsFound == 0 {
+				t.Errorf("Vendor assertion failed: No vendor dependencies found - vendor directory handling may be broken")
+			} else {
+				t.Logf("Vendor dependencies detected: %d packages from vendor directory", vendorDepsFound)
+			}
+
+		case "vendor_functions_excluded":
+			// Ensure no functions from vendor packages are included as user functions
+			vendorFunctionsFound := 0
+			for _, fn := range fbom.Functions {
+				if strings.Contains(fn.Package, "vendor/") {
+					vendorFunctionsFound++
+					t.Errorf("Vendor assertion failed: Found function '%s' from vendor package '%s' - vendor functions should not be included", fn.Name, fn.Package)
+				}
+			}
+			if vendorFunctionsFound == 0 {
+				t.Logf("Vendor functions correctly excluded: No functions from vendor packages found in FBOM")
+			}
+
+		case "vendor_mod_flag_usage":
+			// This validates that the tool runs successfully with vendor directory present
+			// The fact that we get valid output (including vendor dependencies) indicates
+			// that the -mod=mod flag was used automatically
+			if len(fbom.Dependencies) > 0 {
+				t.Logf("Vendor mod flag usage: Tool successfully analyzed project with vendor directory (found %d dependencies)", len(fbom.Dependencies))
+			} else {
+				t.Errorf("Vendor mod flag assertion failed: No dependencies found - vendor directory may not be handled correctly")
+			}
+
 		default:
 			t.Errorf("Unknown assertion type: %s", assertion.Type)
 		}
@@ -740,7 +797,7 @@ func TestDependencyClusteringIntegration(t *testing.T) {
 			t.Error("Expected to find Unmarshal entry point in yaml.v2 cluster")
 		}
 
-		t.Logf("✓ yaml.v2 cluster validated: %d entry points, %d blast radius",
+		t.Logf("yaml.v2 cluster validated: %d entry points, %d blast radius",
 			len(yamlCluster.EntryPoints), yamlCluster.TotalBlastRadius)
 	}
 
@@ -760,7 +817,7 @@ func TestDependencyClusteringIntegration(t *testing.T) {
 		t.Error("Should have some user-defined functions in test-project")
 	}
 
-	t.Logf("✓ Integration test passed: %d clusters, %d user functions",
+	t.Logf("Integration test passed: %d clusters, %d user functions",
 		len(fbom.DependencyClusters), userFunctionCount)
 }
 
@@ -786,6 +843,16 @@ func isStandardLibraryPackage(pkg string) bool {
 func isDependencyPackage(pkg string) bool {
 	// External dependencies typically have domain names
 	return strings.Contains(pkg, ".") && (strings.Contains(pkg, "/") || strings.Contains(pkg, "github.com") || strings.Contains(pkg, "gopkg.in") || strings.Contains(pkg, "golang.org"))
+}
+
+func isFromRootModule(pkg string, rootModuleName string) bool {
+	// If we don't have a root module name, we can't determine this
+	if rootModuleName == "" {
+		return false
+	}
+
+	// Check if the package is the root module or a subpackage of the root module
+	return pkg == rootModuleName || strings.HasPrefix(pkg, rootModuleName+"/")
 }
 
 // TestAlgorithmSelection tests that different call graph algorithms can be used

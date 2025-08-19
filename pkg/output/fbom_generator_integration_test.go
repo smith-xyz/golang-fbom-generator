@@ -41,6 +41,12 @@ func unusedFunction() {
 
 	generator := NewFBOMGenerator(true)
 
+	// For testing, we need to set the context to treat 'testmodule' as the local project
+	// This simulates analyzing a project where the root package is 'testmodule'
+	if generator.contextAwareConfig != nil {
+		generator.contextAwareConfig.SetRootPackage("testmodule")
+	}
+
 	// Build real SSA and call graph from the test code
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {

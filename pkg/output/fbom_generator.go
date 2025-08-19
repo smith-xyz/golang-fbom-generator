@@ -6,7 +6,6 @@ import (
 	"go/types"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/config"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/utils"
 )
 
 // FBOMGenerator handles FBOM generation for user applications
@@ -27,6 +27,7 @@ type FBOMGenerator struct {
 	logger                *slog.Logger
 	verbose               bool
 	config                *config.Config
+	contextAwareConfig    *config.ContextAwareConfig
 	additionalEntryPoints []string
 	generatedFBOM         *FBOM // Store the last generated FBOM
 }
@@ -49,10 +50,32 @@ func NewFBOMGenerator(verbose bool) *FBOMGenerator {
 		cfg = &config.Config{}
 	}
 
+	// Try to detect root package for context-aware configuration
+	var contextAwareConfig *config.ContextAwareConfig
+	rootPackage, err := utils.GetCurrentGoModule()
+	if err != nil {
+		if verbose {
+			logger.Debug("Failed to detect root package, using non-context-aware config", "error", err)
+		}
+		// Fall back to non-context-aware config (original behavior)
+		contextAwareConfig = nil
+	} else {
+		contextAwareConfig, err = config.NewContextAwareConfig(rootPackage)
+		if err != nil {
+			if verbose {
+				logger.Debug("Failed to create context-aware config, using non-context-aware config", "error", err)
+			}
+			contextAwareConfig = nil
+		} else if verbose {
+			logger.Debug("Using context-aware config", "rootPackage", rootPackage)
+		}
+	}
+
 	return &FBOMGenerator{
 		logger:                logger,
 		verbose:               verbose,
 		config:                cfg,
+		contextAwareConfig:    contextAwareConfig,
 		additionalEntryPoints: make([]string, 0),
 	}
 }
@@ -65,16 +88,8 @@ func (g *FBOMGenerator) SetAdditionalEntryPoints(entryPoints []string) error {
 	}
 
 	// Validate and store the entry point patterns
-	validPatterns := make([]string, 0, len(entryPoints))
-	for _, pattern := range entryPoints {
-		trimmed := strings.TrimSpace(pattern)
-		if trimmed != "" {
-			validPatterns = append(validPatterns, trimmed)
-		}
-	}
-
-	g.additionalEntryPoints = validPatterns
-	g.logger.Debug("Set additional entry points", "patterns", validPatterns)
+	g.additionalEntryPoints = utils.TrimSpaceSlice(entryPoints)
+	g.logger.Debug("Set additional entry points", "patterns", g.additionalEntryPoints)
 	return nil
 }
 
@@ -710,13 +725,18 @@ func isPointer(t types.Type) bool {
 
 // isUserDefinedFunction determines if a function should be included (user-defined only)
 func (g *FBOMGenerator) isUserDefinedFunction(fn *ssa.Function) bool {
-	// Original behavior for backward compatibility
 	if fn == nil || fn.Pkg == nil || fn.Pkg.Pkg == nil {
 		return false
 	}
 
 	packagePath := fn.Pkg.Pkg.Path()
 
+	// Use context-aware package classification if available
+	if g.contextAwareConfig != nil {
+		return g.contextAwareConfig.IsUserDefined(packagePath)
+	}
+
+	// Fallback to original behavior for backward compatibility
 	// Exclude standard library packages
 	if g.isStandardLibraryPackage(packagePath) {
 		return false
@@ -733,12 +753,29 @@ func (g *FBOMGenerator) isUserDefinedFunction(fn *ssa.Function) bool {
 
 // isStandardLibraryPackage checks if a package is part of Go's standard library
 func (g *FBOMGenerator) isStandardLibraryPackage(packagePath string) bool {
+	// Use context-aware config if available, otherwise fall back to base config
+	if g.contextAwareConfig != nil {
+		return g.contextAwareConfig.IsStandardLibrary(packagePath)
+	}
 	return g.config.IsStandardLibrary(packagePath)
 }
 
 // isDependencyPackage checks if a package is a third-party dependency.
 func (g *FBOMGenerator) isDependencyPackage(packagePath string) bool {
+	// Use context-aware config if available, otherwise fall back to base config
+	if g.contextAwareConfig != nil {
+		return g.contextAwareConfig.IsDependency(packagePath)
+	}
 	return g.config.IsDependency(packagePath)
+}
+
+// isUserDefinedPackage checks if a package is user-defined.
+func (g *FBOMGenerator) isUserDefinedPackage(packagePath string) bool {
+	// Use context-aware config if available, otherwise fall back to base config
+	if g.contextAwareConfig != nil {
+		return g.contextAwareConfig.IsUserDefined(packagePath)
+	}
+	return g.config.IsUserDefined(packagePath)
 }
 
 func (g *FBOMGenerator) generateFunctionID(fn *ssa.Function) string {
@@ -1646,27 +1683,19 @@ func (g *FBOMGenerator) extractVersionFromGoMod(packageName string) string {
 // getModuleVersions executes 'go list -m all' to get all module versions
 func (g *FBOMGenerator) getModuleVersions() (map[string]string, error) {
 	// Check if vendor directory exists to determine the right approach
-	var cmd *exec.Cmd
-	if g.hasVendorDirectory() {
+	useVendorMode := g.hasVendorDirectory()
+	if useVendorMode {
 		g.logger.Debug("Vendor directory detected, using -mod=mod flag")
-		cmd = exec.Command("go", "list", "-mod=mod", "-m", "all")
-	} else {
-		cmd = exec.Command("go", "list", "-m", "all")
 	}
 
-	output, err := cmd.Output()
+	lines, err := utils.GetModuleVersions(useVendorMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute 'go list -m all': %w", err)
+		return nil, err
 	}
 
 	moduleVersions := make(map[string]string)
-	lines := strings.Split(string(output), "\n")
 
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
 
 		// Parse line format: "module version"
 		// Example: "github.com/gin-gonic/gin v1.9.1"
@@ -1694,6 +1723,13 @@ func (g *FBOMGenerator) hasVendorDirectory() bool {
 
 // extractRootPackageForVersionLookup extracts the root package name for version lookup
 func (g *FBOMGenerator) extractRootPackageForVersionLookup(packageName string) string {
+	// First, strip vendor/ prefix if present
+	originalPackage := packageName
+	if strings.HasPrefix(packageName, "vendor/") {
+		packageName = strings.TrimPrefix(packageName, "vendor/")
+		g.logger.Debug("Stripped vendor prefix", "original", originalPackage, "stripped", packageName)
+	}
+
 	// Handle special cases for version lookup
 	if strings.HasPrefix(packageName, "golang.org/x/") {
 		parts := strings.Split(packageName, "/")
@@ -1847,11 +1883,6 @@ func (g *FBOMGenerator) getFunctionName(fn *ssa.Function) string {
 		return ""
 	}
 	return fn.Name()
-}
-
-// isUserDefinedPackage checks if package is user-defined
-func (g *FBOMGenerator) isUserDefinedPackage(pkgPath string) bool {
-	return !g.isStandardLibraryPackage(pkgPath) && !g.isDependencyPackage(pkgPath)
 }
 
 // isDependencyOrStdlib checks if package is a dependency or stdlib

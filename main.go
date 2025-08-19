@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/smith-xyz/golang-fbom-generator/pkg/generator"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/utils"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/version"
 )
 
@@ -28,13 +28,7 @@ func main() {
 	}
 
 	// Parse entry points
-	var entryPointList []string
-	if *entryPoints != "" {
-		entryPointList = strings.Split(*entryPoints, ",")
-		for i := range entryPointList {
-			entryPointList[i] = strings.TrimSpace(entryPointList[i])
-		}
-	}
+	entryPointList := utils.ParseCommaDelimited(*entryPoints)
 
 	// Generate FBOM using unified generator
 	if err := generator.GenerateFBOM(*packagePath, *cveFile, *verbose, *algorithm, entryPointList); err != nil {

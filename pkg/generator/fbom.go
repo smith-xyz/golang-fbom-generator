@@ -11,6 +11,7 @@ import (
 	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/output"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/utils"
 )
 
 // GenerateFBOM generates an FBOM for any package (local, external, or stdlib)
@@ -31,102 +32,88 @@ func GenerateFBOM(packageSpec, cveFile string, verbose bool, algorithm string, e
 
 	originalDir := packageSpec
 
-	// Change to working directory for analysis
-	originalWd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
-	}
-
-	if workingDir != originalWd {
-		if err := os.Chdir(workingDir); err != nil {
-			return fmt.Errorf("failed to change to working directory %s: %w", workingDir, err)
+	// Change to working directory for analysis using utils
+	return utils.WithDirectoryChange(workingDir, func() error {
+		callGraphGen := callgraph.NewGenerator(targetPackage, verbose)
+		err = callGraphGen.SetAlgorithm(algorithm)
+		if err != nil {
+			return fmt.Errorf("failed to set call graph algorithm: %w", err)
 		}
-		defer func() {
-			if chdirErr := os.Chdir(originalWd); chdirErr != nil && verbose {
-				fmt.Fprintf(os.Stderr, "Warning: failed to return to original directory: %v\n", chdirErr)
+		callGraph, ssaProgram, err := callGraphGen.Generate()
+		if err != nil {
+			return fmt.Errorf("failed to generate call graph: %w", err)
+		}
+
+		// Analyze reflection usage
+		reflectionDetector := reflection.NewDetector(verbose)
+		reflectionUsage, err := reflectionDetector.AnalyzePackage(targetPackage, ssaProgram)
+		if err != nil {
+			return fmt.Errorf("failed to analyze reflection: %w", err)
+		}
+
+		// Generate FBOM first to get dependency clusters
+		fbomGenerator := output.NewFBOMGenerator(verbose)
+		err = fbomGenerator.SetAdditionalEntryPoints(entryPointList)
+		if err != nil {
+			return fmt.Errorf("failed to set additional entry points: %w", err)
+		}
+
+		mainPackageName := determineMainPackageName(originalDir)
+
+		// Generate FBOM without assessments first to get dependency clusters
+		err = fbomGenerator.Generate(nil, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+		if err != nil {
+			return fmt.Errorf("failed to generate FBOM: %w", err)
+		}
+
+		// Extract dependency clusters from the generated FBOM
+		fbomData := fbomGenerator.GetFBOM()
+		var dependencyClusters []analysis.DependencyCluster
+		for _, cluster := range fbomData.DependencyClusters {
+			var entryPoints []analysis.DependencyEntry
+			for _, ep := range cluster.EntryPoints {
+				entryPoints = append(entryPoints, analysis.DependencyEntry{
+					Function:   ep.Function,
+					CalledFrom: ep.CalledFrom,
+				})
 			}
-		}()
-	}
 
-	callGraphGen := callgraph.NewGenerator(targetPackage, verbose)
-	err = callGraphGen.SetAlgorithm(algorithm)
-	if err != nil {
-		return fmt.Errorf("failed to set call graph algorithm: %w", err)
-	}
-	callGraph, ssaProgram, err := callGraphGen.Generate()
-	if err != nil {
-		return fmt.Errorf("failed to generate call graph: %w", err)
-	}
-
-	// Analyze reflection usage
-	reflectionDetector := reflection.NewDetector(verbose)
-	reflectionUsage, err := reflectionDetector.AnalyzePackage(targetPackage, ssaProgram)
-	if err != nil {
-		return fmt.Errorf("failed to analyze reflection: %w", err)
-	}
-
-	// Generate FBOM first to get dependency clusters
-	fbomGenerator := output.NewFBOMGenerator(verbose)
-	err = fbomGenerator.SetAdditionalEntryPoints(entryPointList)
-	if err != nil {
-		return fmt.Errorf("failed to set additional entry points: %w", err)
-	}
-
-	mainPackageName := determineMainPackageName(originalDir)
-
-	// Generate FBOM without assessments first to get dependency clusters
-	err = fbomGenerator.Generate(nil, reflectionUsage, callGraph, ssaProgram, mainPackageName)
-	if err != nil {
-		return fmt.Errorf("failed to generate FBOM: %w", err)
-	}
-
-	// Extract dependency clusters from the generated FBOM
-	fbomData := fbomGenerator.GetFBOM()
-	var dependencyClusters []analysis.DependencyCluster
-	for _, cluster := range fbomData.DependencyClusters {
-		var entryPoints []analysis.DependencyEntry
-		for _, ep := range cluster.EntryPoints {
-			entryPoints = append(entryPoints, analysis.DependencyEntry{
-				Function:   ep.Function,
-				CalledFrom: ep.CalledFrom,
+			dependencyClusters = append(dependencyClusters, analysis.DependencyCluster{
+				Name:             cluster.Name,
+				EntryPoints:      entryPoints,
+				ClusterFunctions: cluster.ClusterFunctions,
+				TotalBlastRadius: cluster.TotalBlastRadius,
 			})
 		}
 
-		dependencyClusters = append(dependencyClusters, analysis.DependencyCluster{
-			Name:             cluster.Name,
-			EntryPoints:      entryPoints,
-			ClusterFunctions: cluster.ClusterFunctions,
-			TotalBlastRadius: cluster.TotalBlastRadius,
-		})
-	}
+		// Analyze CVEs with complete context including dependency clusters
+		var assessments []analysis.Assessment
+		if cveFile != "" {
+			loader := cve.NewLoader(verbose)
+			cveData, err := loader.LoadFromFile(cveFile)
+			if err != nil {
+				return fmt.Errorf("failed to load CVE data: %w", err)
+			}
 
-	// Analyze CVEs with complete context including dependency clusters
-	var assessments []analysis.Assessment
-	if cveFile != "" {
-		loader := cve.NewLoader(verbose)
-		cveData, err := loader.LoadFromFile(cveFile)
-		if err != nil {
-			return fmt.Errorf("failed to load CVE data: %w", err)
+			engine := analysis.NewEngine(verbose)
+			assessments, _ = engine.AnalyzeAll(&analysis.AnalysisContext{
+				CallGraph:          callGraph,
+				SSAProgram:         ssaProgram,
+				ReflectionUsage:    reflectionUsage,
+				CVEDatabase:        cveData,
+				EntryPoints:        []string{}, // TODO: extract entry points if needed
+				DependencyClusters: dependencyClusters,
+			})
+
+			// Re-generate FBOM with CVE assessments
+			err = fbomGenerator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+			if err != nil {
+				return fmt.Errorf("failed to regenerate FBOM with CVE data: %w", err)
+			}
 		}
 
-		engine := analysis.NewEngine(verbose)
-		assessments, _ = engine.AnalyzeAll(&analysis.AnalysisContext{
-			CallGraph:          callGraph,
-			SSAProgram:         ssaProgram,
-			ReflectionUsage:    reflectionUsage,
-			CVEDatabase:        cveData,
-			EntryPoints:        []string{}, // TODO: extract entry points if needed
-			DependencyClusters: dependencyClusters,
-		})
-
-		// Re-generate FBOM with CVE assessments
-		err = fbomGenerator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, mainPackageName)
-		if err != nil {
-			return fmt.Errorf("failed to regenerate FBOM with CVE data: %w", err)
-		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func resolvePackageToDirectory(packageSpec string) (workingDir string, targetPackage string, err error) {
@@ -148,31 +135,64 @@ func resolvePackageToDirectory(packageSpec string) (workingDir string, targetPac
 		return wd, packageSpec, nil
 	}
 
-	// Load config to use for package detection
-	cfg, err := config.DefaultConfig()
-	if err != nil {
-		// Fallback if config loading fails
-		cfg = &config.Config{}
-	}
-
 	// Remove version specifier if present for package type detection
 	pkg := packageSpec
 	if idx := strings.Index(packageSpec, "@"); idx != -1 {
 		pkg = packageSpec[:idx]
 	}
 
+	// Try to create context-aware config for better package classification
+	var contextAwareConfig *config.ContextAwareConfig
+	rootPackage, err := utils.GetCurrentGoModule()
+	if err == nil {
+		contextAwareConfig, err = config.NewContextAwareConfig(rootPackage)
+		if err != nil {
+			contextAwareConfig = nil
+		}
+	}
+
+	// Use context-aware config if available, otherwise fall back to base config
+	var isStdlib, isDep bool
+	if contextAwareConfig != nil {
+		isStdlib = contextAwareConfig.IsStandardLibrary(pkg)
+		isDep = contextAwareConfig.IsDependency(pkg)
+	} else {
+		// Fallback to base config
+		cfg, err := config.DefaultConfig()
+		if err != nil {
+			cfg = &config.Config{}
+		}
+		isStdlib = cfg.IsStandardLibrary(pkg)
+		isDep = cfg.IsDependency(pkg)
+	}
+
 	// Reject standard library packages
-	if cfg.IsStandardLibrary(pkg) {
+	if isStdlib {
 		return "", "", fmt.Errorf("standard library packages are not supported: %s", packageSpec)
 	}
 
+	// With context-aware config, we can now support local packages with external-looking names
+	if contextAwareConfig != nil && contextAwareConfig.IsUserDefined(pkg) {
+		// This is a user-defined package (potentially the local project)
+		// Assume we should analyze it from the current working directory
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get working directory: %w", err)
+		}
+		return wd, pkg, nil
+	}
+
 	// Reject external packages
-	if cfg.IsDependency(pkg) {
+	if isDep {
 		return "", "", fmt.Errorf("external packages are not supported: %s", packageSpec)
 	}
 
-	// Reject anything else that's not explicitly a local package
-	return "", "", fmt.Errorf("unsupported package specification: %s (only local packages starting with '.' are supported)", packageSpec)
+	// Assume local package - analyze from current directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+	return wd, pkg, nil
 }
 
 // determineMainPackageName determines the main package name from the package path

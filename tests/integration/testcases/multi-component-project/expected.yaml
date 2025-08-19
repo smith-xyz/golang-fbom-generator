@@ -1,0 +1,109 @@
+test_name: "Multi-Component Project - Context-Aware Analysis"
+description: "Test context-aware package classification with multi-component project structure including API server, CLI tool, and processing engine"
+
+expectations:
+  dependencies:
+    - name: "github.com/gin-gonic/gin"
+      version: "v1.9.1"
+      purl_identifier: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+      used_functions: 4
+      called_functions_count: 4
+      called_functions:
+        - function_name: "Default"
+          call_context: "direct"
+        - function_name: "GET"
+          call_context: "direct"
+        - function_name: "JSON"
+          call_context: "direct"
+        - function_name: "init"
+          call_context: "direct"
+      
+    - name: "github.com/sirupsen/logrus"
+      version: "v1.9.3"
+      purl_identifier: "pkg:golang/github.com/sirupsen/logrus@v1.9.3"
+      used_functions: 3
+      called_functions_count: 3
+      called_functions:
+        - function_name: "Info"
+          call_context: "direct"
+        - function_name: "WithField"
+          call_context: "direct"
+        - function_name: "init"
+          call_context: "direct"
+
+    - name: "github.com/spf13/cobra"
+      version: "v1.8.1"
+      purl_identifier: "pkg:golang/github.com/spf13/cobra@v1.8.1"
+      used_functions: 3
+      called_functions_count: 3
+      called_functions:
+        - function_name: "Execute"
+          call_context: "direct"
+        - function_name: "AddCommand"
+          call_context: "direct"
+        - function_name: "init"
+          call_context: "direct"
+
+  functions:
+    - name: "main"
+      has_external_calls: true
+      stdlib_calls_contain: []
+
+  security_info:
+    reflection_calls_count: 0
+    external_dependencies_count: 117
+    total_functions_count: 32
+    user_functions_count: 32
+
+  dependency_clusters:
+    - name: "github.com/gin-gonic/gin"
+      min_entry_points: 2
+      min_blast_radius: 30
+      entry_points_contain:
+        - function: "Default"
+        - function: "GET"
+
+assertions:
+  - type: "dependency_exists"
+    name: "github.com/gin-gonic/gin"
+    
+  - type: "dependency_exists"
+    name: "github.com/sirupsen/logrus"
+    
+  - type: "dependency_exists"
+    name: "github.com/spf13/cobra"
+    
+  - type: "dependency_version"
+    name: "github.com/gin-gonic/gin"
+    expected_version: "v1.9.1"
+    
+  - type: "dependency_purl"
+    name: "github.com/gin-gonic/gin"
+    expected_purl: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+    
+  - type: "function_called"
+    dependency: "github.com/gin-gonic/gin"
+    function: "Default"
+    
+  - type: "function_called"
+    dependency: "github.com/sirupsen/logrus"
+    function: "Info"
+    
+  - type: "function_called"
+    dependency: "github.com/spf13/cobra"
+    function: "Execute"
+    
+  - type: "call_context"
+    dependency: "github.com/gin-gonic/gin"
+    function: "GET"
+    expected_context: "direct"
+
+  # Vendor-specific validations (related to HyperShift vendor directory issues)
+  - type: "vendor_dependency_handling"
+    description: "Ensure vendor packages are detected and handled correctly"
+    
+  - type: "vendor_functions_excluded"
+    description: "Ensure no functions from vendor packages are included as user functions"
+    
+  - type: "vendor_mod_flag_usage"
+    description: "Ensure -mod=mod flag is used automatically when vendor directory exists"
