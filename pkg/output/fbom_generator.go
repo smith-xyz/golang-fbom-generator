@@ -1645,7 +1645,15 @@ func (g *FBOMGenerator) extractVersionFromGoMod(packageName string) string {
 
 // getModuleVersions executes 'go list -m all' to get all module versions
 func (g *FBOMGenerator) getModuleVersions() (map[string]string, error) {
-	cmd := exec.Command("go", "list", "-m", "all")
+	// Check if vendor directory exists to determine the right approach
+	var cmd *exec.Cmd
+	if g.hasVendorDirectory() {
+		g.logger.Debug("Vendor directory detected, using -mod=mod flag")
+		cmd = exec.Command("go", "list", "-mod=mod", "-m", "all")
+	} else {
+		cmd = exec.Command("go", "list", "-m", "all")
+	}
+
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute 'go list -m all': %w", err)
@@ -1674,6 +1682,14 @@ func (g *FBOMGenerator) getModuleVersions() (map[string]string, error) {
 	}
 
 	return moduleVersions, nil
+}
+
+// hasVendorDirectory checks if the current working directory contains a vendor directory
+func (g *FBOMGenerator) hasVendorDirectory() bool {
+	if _, err := os.Stat("vendor"); err == nil {
+		return true
+	}
+	return false
 }
 
 // extractRootPackageForVersionLookup extracts the root package name for version lookup

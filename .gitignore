@@ -35,6 +35,9 @@ dist/
 build/
 tmp/
 
+# Vendor directory
+vendor/
+
 # Logs
 *.log
 

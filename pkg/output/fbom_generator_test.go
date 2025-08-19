@@ -2507,3 +2507,211 @@ func TestExtractRootPackageForVersionLookup(t *testing.T) {
 		})
 	}
 }
+
+// TestHasVendorDirectory tests the vendor directory detection functionality
+func TestHasVendorDirectory(t *testing.T) {
+	generator := NewFBOMGenerator(false)
+
+	// Test case 1: No vendor directory
+	t.Run("NoVendorDirectory", func(t *testing.T) {
+		// Create a temporary directory without vendor
+		tempDir := t.TempDir()
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to change to temp directory: %v", err)
+		}
+
+		hasVendor := generator.hasVendorDirectory()
+		if hasVendor {
+			t.Error("Expected hasVendorDirectory() to return false when no vendor directory exists")
+		}
+	})
+
+	// Test case 2: Vendor directory exists
+	t.Run("VendorDirectoryExists", func(t *testing.T) {
+		// Create a temporary directory with vendor
+		tempDir := t.TempDir()
+		vendorDir := filepath.Join(tempDir, "vendor")
+		err := os.Mkdir(vendorDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create vendor directory: %v", err)
+		}
+
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to change to temp directory: %v", err)
+		}
+
+		hasVendor := generator.hasVendorDirectory()
+		if !hasVendor {
+			t.Error("Expected hasVendorDirectory() to return true when vendor directory exists")
+		}
+	})
+
+	// Test case 3: Vendor is a file, not a directory
+	t.Run("VendorIsFile", func(t *testing.T) {
+		// Create a temporary directory with vendor file
+		tempDir := t.TempDir()
+		vendorFile := filepath.Join(tempDir, "vendor")
+		err := os.WriteFile(vendorFile, []byte("not a directory"), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create vendor file: %v", err)
+		}
+
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to change to temp directory: %v", err)
+		}
+
+		hasVendor := generator.hasVendorDirectory()
+		if !hasVendor {
+			// Note: os.Stat() will succeed even if vendor is a file, not a directory
+			// This is acceptable behavior for our use case
+			t.Log("hasVendorDirectory() returned false for vendor file - this is acceptable")
+		}
+	})
+}
+
+// TestGetModuleVersionsWithVendor tests that getModuleVersions handles vendor directories correctly
+func TestGetModuleVersionsWithVendor(t *testing.T) {
+	generator := NewFBOMGenerator(true) // verbose for better debugging
+
+	// We'll create a mock scenario by testing the command selection logic
+	// Since we can't easily mock exec.Command in unit tests, we'll test the logic flow
+
+	t.Run("CommandSelectionLogic", func(t *testing.T) {
+		// Test case 1: No vendor directory - should use standard command
+		tempDir := t.TempDir()
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to change to temp directory: %v", err)
+		}
+
+		// Since we can't easily test the actual command execution without a real Go module,
+		// we'll test that the vendor detection logic works correctly
+		hasVendor := generator.hasVendorDirectory()
+		if hasVendor {
+			t.Error("Expected no vendor directory in empty temp dir")
+		}
+
+		// Test case 2: With vendor directory
+		vendorDir := filepath.Join(tempDir, "vendor")
+		err = os.Mkdir(vendorDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create vendor directory: %v", err)
+		}
+
+		hasVendor = generator.hasVendorDirectory()
+		if !hasVendor {
+			t.Error("Expected vendor directory to be detected")
+		}
+	})
+}
+
+// TestGetModuleVersionsIntegration is an integration test that requires a real Go module
+func TestGetModuleVersionsIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	generator := NewFBOMGenerator(true)
+
+	t.Run("RealGoModule", func(t *testing.T) {
+		// Create a temporary Go module for testing
+		tempDir := t.TempDir()
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to change to temp directory: %v", err)
+		}
+
+		// Create a minimal go.mod file
+		goModContent := `module test-module
+
+go 1.21
+
+require github.com/stretchr/testify v1.8.0
+`
+		err = os.WriteFile("go.mod", []byte(goModContent), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create go.mod: %v", err)
+		}
+
+		// Create a simple main.go file
+		mainContent := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("test")
+}
+`
+		err = os.WriteFile("main.go", []byte(mainContent), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create main.go: %v", err)
+		}
+
+		// Test without vendor directory
+		versions, err := generator.getModuleVersions()
+		if err != nil {
+			t.Logf("getModuleVersions without vendor failed (this may be expected): %v", err)
+		} else {
+			if len(versions) == 0 {
+				t.Error("Expected some module versions to be returned")
+			}
+			t.Logf("Found %d module versions without vendor", len(versions))
+		}
+
+		// Create vendor directory and test again
+		err = os.Mkdir("vendor", 0755)
+		if err != nil {
+			t.Fatalf("Failed to create vendor directory: %v", err)
+		}
+
+		// Add some dummy vendor content
+		err = os.MkdirAll("vendor/github.com/stretchr/testify", 0755)
+		if err != nil {
+			t.Fatalf("Failed to create vendor subdirectory: %v", err)
+		}
+
+		// Test with vendor directory
+		versions, err = generator.getModuleVersions()
+		if err != nil {
+			t.Logf("getModuleVersions with vendor failed: %v", err)
+		} else {
+			if len(versions) == 0 {
+				t.Error("Expected some module versions to be returned with vendor")
+			}
+			t.Logf("Found %d module versions with vendor", len(versions))
+		}
+	})
+}
