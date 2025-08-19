@@ -35,6 +35,9 @@ golang-fbom-generator -package . -cve cve-data.json
 
 # Verbose output
 golang-fbom-generator -package . -v
+
+# Auto-discover all main functions for multi-component projects
+golang-fbom-generator --auto-discover -v
 ```
 
 ### Command Line Options
@@ -44,6 +47,7 @@ golang-fbom-generator -package . -v
 - `-v`: Verbose output
 - `-entry-points`: Comma-separated list of additional entry point patterns
 - `-algo`: Call graph algorithm to use: `rta`, `cha`, `static`, `vta` (default: "rta")
+- `-auto-discover`: Auto-discover all main functions for unified multi-component analysis
 - `-library`: Library mode - treat current package as user-defined regardless of import path
 - `-version`: Show version information
 

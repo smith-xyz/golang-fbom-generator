@@ -1,0 +1,85 @@
+test_name: "Multi-Component Project - Auto-Discovery Mode"
+description: "Test auto-discovery functionality with multi-component project that has 6 main functions across different directories"
+
+expectations:
+  dependencies:
+    - name: "github.com/gin-gonic/gin"
+      version: "v1.9.1"
+      purl_identifier: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+      used_functions: 4
+      called_functions_count: 4
+      
+    - name: "github.com/sirupsen/logrus"
+      version: "v1.9.3"
+      purl_identifier: "pkg:golang/github.com/sirupsen/logrus@v1.9.3"
+      used_functions: 4
+      called_functions_count: 4
+
+    - name: "github.com/spf13/cobra"
+      version: "v1.8.1"
+      purl_identifier: "pkg:golang/github.com/spf13/cobra@v1.8.1"
+      used_functions: 3
+      called_functions_count: 3
+
+  functions:
+    - name: "main"
+      has_external_calls: true
+      stdlib_calls_contain: []
+
+  security_info:
+    reflection_calls_count: 0
+    external_dependencies_count: 117
+    total_functions_count: 55  # More functions due to unified analysis
+    user_functions_count: 55  # All user functions across all packages
+
+  discovery_info:
+    main_functions_discovered: 6
+    unified_analysis: true
+    module_pattern: "github.com/example/multi-component-project/..."
+    
+assertions:
+  - type: "dependency_exists"
+    name: "github.com/gin-gonic/gin"
+    
+  - type: "dependency_version"
+    name: "github.com/gin-gonic/gin"
+    expected_version: "v1.9.1"
+    
+  - type: "dependency_purl"
+    name: "github.com/gin-gonic/gin"
+    expected_purl: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+    
+  - type: "function_called"
+    dependency: "github.com/gin-gonic/gin"
+    function: "Default"
+    
+  - type: "function_called"
+    dependency: "github.com/sirupsen/logrus"
+    function: "Info"
+    
+  - type: "function_called"
+    dependency: "github.com/spf13/cobra"
+    function: "Execute"
+    
+  # Auto-discovery specific validations
+  - type: "auto_discovery_main_count"
+    expected_count: 6
+    description: "Ensure 6 main functions are discovered across all directories"
+    
+  - type: "auto_discovery_unified_analysis"
+    description: "Ensure unified analysis pattern is used"
+    expected_pattern: "github.com/example/multi-component-project/..."
+    
+  - type: "auto_discovery_function_coverage"
+    description: "Ensure all packages' functions are included due to unified analysis"
+    min_user_functions: 50  # Should be significantly more than single-package analysis
+
+  # Vendor-specific validations 
+  - type: "vendor_dependency_handling"
+    description: "Ensure vendor packages are detected and handled correctly"
+    
+  - type: "vendor_functions_excluded" 
+    description: "Ensure no functions from vendor packages are included as user functions"
+    
+  - type: "vendor_mod_flag_usage"
+    description: "Ensure -mod=mod flag is used automatically when vendor directory exists"
