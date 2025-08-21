@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/smith-xyz/golang-fbom-generator/pkg/callgraph"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/output"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
 )
@@ -85,6 +86,7 @@ func DiscoverMainFunctions(basePath string) ([]MainFunctionInfo, error) {
 // getModuleName reads the go.mod file and extracts the module name
 func getModuleName(basePath string) (string, error) {
 	goModPath := filepath.Join(basePath, "go.mod")
+	goModPath = filepath.Clean(goModPath)
 	content, err := os.ReadFile(goModPath)
 	if err != nil {
 		return "", err
@@ -211,7 +213,11 @@ func generateSingleFBOMInternal(packageSpec, cveFile string, verbose bool, algor
 		return nil, fmt.Errorf("failed to analyze reflection: %w", err)
 	}
 
-	// Generate FBOM
+	// Load CVE data if provided - this should be handled by caller but let's be safe
+	var cveDatabase *cve.CVEDatabase
+	// Note: CVE file loading is handled by the caller, so we don't do it here
+
+	// Generate FBOM using buildFBOM to avoid double output
 	fbomGenerator := output.NewFBOMGenerator(verbose)
 	err = fbomGenerator.SetAdditionalEntryPoints(entryPointList)
 	if err != nil {
@@ -220,25 +226,10 @@ func generateSingleFBOMInternal(packageSpec, cveFile string, verbose bool, algor
 
 	mainPackageName := determineMainPackageName(packageSpec)
 
-	// Generate FBOM
-	err = fbomGenerator.Generate(nil, reflectionUsage, callGraph, ssaProgram, mainPackageName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate FBOM: %w", err)
-	}
+	// Use BuildFBOM directly instead of Generate to avoid stdout output
+	fbom := fbomGenerator.BuildFBOM(cveDatabase, reflectionUsage, callGraph, ssaProgram, mainPackageName)
 
-	fbomData := fbomGenerator.GetFBOM()
-	return fbomData, nil
-}
-
-// generateUnifiedFBOM generates a unified FBOM by analyzing all main functions together
-func generateUnifiedFBOM(mainFunctions []MainFunctionInfo, targetPackage, cveFile string, verbose bool, algorithm string, entryPointList []string) error {
-	fbom, err := generateUnifiedFBOMInternal(mainFunctions, targetPackage, cveFile, verbose, algorithm, entryPointList)
-	if err != nil {
-		return err
-	}
-	// FBOM has been output to stdout by Generate method
-	_ = fbom
-	return nil
+	return &fbom, nil
 }
 
 // generateUnifiedFBOMInternal generates a unified FBOM by analyzing all main functions together and returns the FBOM
@@ -293,13 +284,8 @@ func generateUnifiedFBOMInternal(mainFunctions []MainFunctionInfo, targetPackage
 		return nil, fmt.Errorf("failed to set additional entry points: %w", err)
 	}
 
-	// Generate FBOM with the module name (not the "..." pattern)
-	err = fbomGenerator.Generate(nil, reflectionUsage, callGraph, ssaProgram, moduleName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate FBOM: %w", err)
-	}
+	// Use BuildFBOM directly instead of Generate to avoid stdout output
+	fbom := fbomGenerator.BuildFBOM(nil, reflectionUsage, callGraph, ssaProgram, moduleName)
 
-	// Get the FBOM object for testing
-	fbomData := fbomGenerator.GetFBOM()
-	return fbomData, nil
+	return &fbom, nil
 }

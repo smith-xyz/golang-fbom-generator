@@ -235,7 +235,7 @@ func (d *Detector) analyzeFunctionsWithPackagePath(file *ast.File, packagePath, 
 		if usage.UsesReflection {
 			usageMap[qualifiedName] = usage
 			if d.verbose {
-				fmt.Printf("Found reflection usage in function: %s\n", qualifiedName)
+				fmt.Fprintf(os.Stderr, "Found reflection usage in function: %s\n", qualifiedName)
 			}
 		}
 

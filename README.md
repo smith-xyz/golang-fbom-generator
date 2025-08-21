@@ -10,7 +10,8 @@ The golang-fbom-generator analyzes **local Go projects** to create detailed secu
 - **Dependency Analysis**: External libraries and their usage patterns  
 - **Dependency Clustering**: Groups reachable functions by dependency with blast radius analysis
 - **Entry Point Mapping**: Application entry points and reachability analysis
-- **Security Assessment**: CVE mapping and vulnerability reachability (when CVE data provided)
+- **Security Assessment**: CVE mapping, vulnerability reachability analysis, and risk scoring
+- **Reflection Detection**: Advanced detection of reflection usage and dynamic call patterns
 - **Call Graph Analysis**: Function call relationships using proven Go toolchain algorithms
 
 ## Quick Start
@@ -252,7 +253,17 @@ jq '.dependencies[] | {name: .name, used_functions: .used_functions}' fbom.json
 
 - **Entry Point Identification**: Finds main functions, HTTP handlers, CLI commands
 - **Call Depth Calculation**: Measures distance from entry points
-- **Reflection Detection**: Identifies use of reflection APIs that complicate static analysis
+- **Reflection Detection**: Advanced detection of reflection usage with risk assessment
+
+### Reflection Analysis
+
+The tool provides sophisticated reflection detection capabilities:
+
+- **Reflection Usage Detection**: Identifies functions using `reflect.ValueOf()`, `Value.Method()`, `Value.Call()`, etc.
+- **Risk Assessment**: Categorizes reflection usage by risk level (Low, Medium, High)
+- **Dynamic Call Patterns**: Detects complex scenarios like interface-based dynamic method invocation
+- **Security Impact**: Assesses potential for bypassing static analysis through reflection
+- **Manual Review Flagging**: Identifies high-risk reflection that requires manual security review
 
 ### Dependency Tracking
 

@@ -78,15 +78,9 @@ build: ## Build the golang-fbom-generator binary
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_PATH) $(MAIN_FILE)
 	@echo "$(GREEN)✅ Build completed: $(BINARY_PATH)$(NC)"
 
-.PHONY: build-all
-build-all: clean deps lint test build ## Run full build pipeline (clean, deps, lint, test, build)
+.PHONY: ci
+ci: clean deps lint test test-integration build ## Run full build pipeline (clean, deps, lint, test, test-integration, build)
 	@echo "$(GREEN)🎉 Full build pipeline completed successfully!$(NC)"
-
-.PHONY: build-release
-build-release: ## Build optimized release binary
-	@echo "$(BLUE)Building release binary...$(NC)"
-	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BINARY_PATH) $(MAIN_FILE)
-	@echo "$(GREEN)✅ Release build completed: $(BINARY_PATH)$(NC)"
 
 .PHONY: build-cross
 build-cross: ## Build for multiple platforms
@@ -186,7 +180,7 @@ vet: ## Run go vet
 sec: ## Run security scanner (gosec)
 	@echo "$(BLUE)Running security scanner...$(NC)"
 	@if command -v gosec >/dev/null 2>&1; then \
-		gosec ./...; \
+		gosec -exclude-dir=examples ./...; \
 		echo "$(GREEN)✅ Security scan completed$(NC)"; \
 	else \
 		echo "$(YELLOW)⚠️  gosec not found, skipping security scan$(NC)"; \

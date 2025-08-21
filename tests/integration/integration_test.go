@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -46,6 +47,7 @@ type ExpectedFunction struct {
 	HasExternalCalls     bool     `yaml:"has_external_calls"`
 	StdlibCallsContain   []string `yaml:"stdlib_calls_contain"`
 	ExternalCallsContain []string `yaml:"external_calls_contain"`
+	HasReflectionAccess  bool     `yaml:"has_reflection_access"`
 }
 
 type ExpectedSecurityInfo struct {
@@ -378,6 +380,12 @@ func validateExpectations(t *testing.T, fbom *FBOM, expectations *TestExpectatio
 						t.Errorf("Function %s: expected external call containing '%s' not found in %v",
 							expectedFunc.Name, expectedExternal, actualFunc.UsageInfo.ExternalCalls)
 					}
+				}
+
+				// Check reflection access
+				if expectedFunc.HasReflectionAccess != actualFunc.UsageInfo.HasReflectionAccess {
+					t.Errorf("Function %s: expected has_reflection_access=%v, got %v",
+						expectedFunc.Name, expectedFunc.HasReflectionAccess, actualFunc.UsageInfo.HasReflectionAccess)
 				}
 				break
 			}
@@ -1185,4 +1193,143 @@ func TestMultiComponentProjectAutoDiscovery(t *testing.T) {
 	}
 
 	t.Log("Multi-component project auto-discovery test passed")
+}
+
+func TestVulnerableProjectLiveCVE(t *testing.T) {
+	// Check if govulncheck is available
+	if _, err := exec.LookPath("govulncheck"); err != nil {
+		t.Skip("govulncheck not available, skipping CVE integration test")
+	}
+
+	// Build the binary using the standard function
+	binaryPath := buildBinary(t)
+	defer os.Remove(binaryPath)
+
+	// Get example project path
+	examplePath := filepath.Join("../../examples", "vulnerable-project")
+	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
+		t.Fatalf("Example project not found: %s", examplePath)
+	}
+
+	// Change to the vulnerable project directory for testing
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+
+	if err := os.Chdir(examplePath); err != nil {
+		t.Fatalf("Failed to change to example directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Warning: failed to restore directory: %v", err)
+		}
+	}()
+
+	// Run FBOM generator with live CVE scanning
+	cmd := exec.Command(binaryPath, "--live-cve-scan", "-v", ".")
+
+	// Capture stdout and stderr separately since JSON goes to stdout and CVE info to stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("FBOM generator failed: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	// Parse the FBOM output from stdout (handle potential duplicate JSON objects)
+	stdoutStr := stdout.String()
+
+	// Find the first complete JSON object
+	decoder := json.NewDecoder(strings.NewReader(stdoutStr))
+	var fbom map[string]interface{}
+	if err := decoder.Decode(&fbom); err != nil {
+		t.Fatalf("Failed to parse FBOM JSON: %v", err)
+	}
+
+	// Log the CVE scan results for verification
+	t.Logf("CVE scan results:\n%s", stderr.String())
+
+	// Load expected results (need to go back to integration test directory)
+	expectationPath := filepath.Join(originalDir, "testcases", "vulnerable-project", "expected.yaml")
+	expectedData, err := os.ReadFile(expectationPath)
+	if err != nil {
+		t.Fatalf("Failed to read expected results: %v", err)
+	}
+
+	var expected map[string]interface{}
+	if err := yaml.Unmarshal(expectedData, &expected); err != nil {
+		t.Fatalf("Failed to parse expected YAML: %v", err)
+	}
+
+	// Validate CVE scanning results
+	validateCVEResults(t, fbom, expected)
+
+	t.Log("Vulnerable project live CVE integration test passed")
+}
+
+func validateCVEResults(t *testing.T, fbom map[string]interface{}, expected map[string]interface{}) {
+	// Get security info from FBOM
+	securityInfo, ok := fbom["security_info"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Missing security_info in FBOM output")
+	}
+
+	// Get live CVE assertions from expected results
+	assertions, ok := expected["live_cve_assertions"].(map[interface{}]interface{})
+	if !ok {
+		t.Fatal("Missing live_cve_assertions in expected results")
+	}
+
+	// Validate total CVEs found
+	if expectedTotal, ok := assertions["total_cves"].(int); ok {
+		totalCVEs, ok := securityInfo["total_cves_found"].(float64)
+		if !ok {
+			t.Error("Missing total_cves_found in security_info")
+		} else if int(totalCVEs) != expectedTotal {
+			t.Errorf("Expected exactly %d total CVEs, found %d", expectedTotal, int(totalCVEs))
+		} else {
+			t.Logf("Total CVEs found: %d (matches expected)", int(totalCVEs))
+		}
+	}
+
+	// Validate reachable CVEs
+	if expectedReachable, ok := assertions["reachable_cves"].(int); ok {
+		reachableCVEs, ok := securityInfo["total_reachable_cves"].(float64)
+		if !ok {
+			t.Error("Missing total_reachable_cves in security_info")
+		} else if int(reachableCVEs) != expectedReachable {
+			t.Errorf("Expected exactly %d reachable CVEs, found %d", expectedReachable, int(reachableCVEs))
+		} else {
+			t.Logf("Reachable CVEs found: %d (matches expected)", int(reachableCVEs))
+		}
+	}
+
+	// Validate vulnerable functions exist
+	if hasVulnFuncs, ok := assertions["vulnerable_functions_exist"].(bool); ok && hasVulnFuncs {
+		vulnFuncs, ok := securityInfo["vulnerable_functions"].([]interface{})
+		if !ok || len(vulnFuncs) == 0 {
+			t.Error("Expected vulnerable functions but found none")
+		} else {
+			t.Logf("Found %d vulnerable functions", len(vulnFuncs))
+		}
+	}
+
+	// Validate user function count (from call_graph.total_functions)
+	if expectedUserFuncs, ok := assertions["user_functions_count"].(int); ok {
+		callGraph, ok := fbom["call_graph"].(map[string]interface{})
+		if !ok {
+			t.Error("Missing call_graph in FBOM")
+		} else {
+			userFuncsCount, ok := callGraph["total_functions"].(float64)
+			if !ok {
+				t.Error("Missing total_functions in call_graph")
+			} else if int(userFuncsCount) != expectedUserFuncs {
+				t.Errorf("Expected exactly %d user functions, found %d", expectedUserFuncs, int(userFuncsCount))
+			} else {
+				t.Logf("User functions count: %d (matches expected)", int(userFuncsCount))
+			}
+		}
+	}
 }

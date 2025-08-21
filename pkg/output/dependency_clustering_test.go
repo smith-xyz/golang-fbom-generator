@@ -3,7 +3,6 @@ package output
 import (
 	"testing"
 
-	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
@@ -16,14 +15,11 @@ func TestDependencyClusteringBasic(t *testing.T) {
 	// Create mock SSA program and call graph for testing
 	ssaProgram, callGraph := createMockSSAForClustering()
 
-	// Create mock assessments with user and dependency functions
-	assessments := createMockAssessmentsForClustering()
-
 	// Create empty reflection usage for this test
 	reflectionUsage := make(map[string]*reflection.Usage)
 
-	// Generate FBOM
-	err := generator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, "testmodule")
+	// Generate FBOM (no CVE data for clustering test)
+	err := generator.Generate(nil, reflectionUsage, callGraph, ssaProgram, "testmodule")
 	if err != nil {
 		t.Fatalf("Failed to generate FBOM: %v", err)
 	}
@@ -78,10 +74,9 @@ func TestDependencyClusteringEntryPoints(t *testing.T) {
 	generator := NewFBOMGenerator(false)
 
 	ssaProgram, callGraph := createMockSSAForClustering()
-	assessments := createMockAssessmentsForClustering()
 	reflectionUsage := make(map[string]*reflection.Usage)
 
-	err := generator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, "testmodule")
+	err := generator.Generate(nil, reflectionUsage, callGraph, ssaProgram, "testmodule")
 	if err != nil {
 		t.Fatalf("Failed to generate FBOM: %v", err)
 	}
@@ -122,10 +117,9 @@ func TestDependencyClusteringBlastRadius(t *testing.T) {
 	generator := NewFBOMGenerator(false)
 
 	ssaProgram, callGraph := createMockSSAForClustering()
-	assessments := createMockAssessmentsForClustering()
 	reflectionUsage := make(map[string]*reflection.Usage)
 
-	err := generator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, "testmodule")
+	err := generator.Generate(nil, reflectionUsage, callGraph, ssaProgram, "testmodule")
 	if err != nil {
 		t.Fatalf("Failed to generate FBOM: %v", err)
 	}
@@ -148,12 +142,6 @@ func createMockSSAForClustering() (*ssa.Program, *callgraph.Graph) {
 	// TODO: Create mock SSA program and call graph
 	// This is a stub that will be filled during implementation
 	return nil, nil
-}
-
-func createMockAssessmentsForClustering() []analysis.Assessment {
-	// TODO: Create mock assessments with dependency calls
-	// This is a stub that will be filled during implementation
-	return []analysis.Assessment{}
 }
 
 // createMockFBOMWithClusters creates a mock FBOM for testing

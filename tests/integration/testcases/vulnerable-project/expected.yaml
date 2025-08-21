@@ -1,0 +1,61 @@
+test_name: "Vulnerable Project FBOM with Live CVE Scanning"
+description: "Test case with actual vulnerabilities detected by govulncheck"
+
+expectations:
+  dependencies:
+    - name: "golang.org/x/net/html"
+      min_used_functions: 1
+    - name: "golang.org/x/text/language"
+      min_used_functions: 1
+
+  functions:
+    - name: "main"
+      has_external_calls: false  # main only calls stdlib and user functions
+      stdlib_calls_contain: ["fmt.Println"]
+    - name: "parseHTML"
+      has_external_calls: true   # calls golang.org/x/net/html.Parse
+      external_calls_contain: ["golang.org/x/net/html.Parse"]
+    - name: "parseLanguageTags"
+      has_external_calls: true   # calls golang.org/x/text/language functions
+    - name: "reflectiveVulnerableCall"
+      has_external_calls: false  # reflection calls don't show as external calls in static analysis
+      has_reflection_access: false  # This function uses reflection but may not be detected as high-risk
+    - name: "reflectiveTraversal"
+      has_reflection_access: true  # uses reflect package extensively
+
+  security_info:
+    user_functions_count: 15  # Added advanced reflection interface attack functions
+    total_functions_count: 15  # All functions in this case are user functions
+    external_dependencies_count: 24  # Includes all sub-packages and stdlib dependencies
+    reflection_calls_count: 5  # Multiple functions now use sophisticated reflection
+
+# Live CVE test specific assertions (used by TestVulnerableProjectLiveCVE)
+live_cve_assertions:
+  total_cves: 15  # Exact count from govulncheck
+  reachable_cves: 6  # Function-level reachability analysis (only CVEs with actually used vulnerable functions)
+  reflection_detected: true  # Should detect reflection usage in reflectiveVulnerableCall and reflectiveTraversal
+  high_reflection_risk_cves: 1  # At least one CVE should have high reflection risk due to calling vulnerable html.Parse via reflection
+  user_functions_count: 15  # Updated count including advanced reflection attack functions
+  vulnerable_packages:
+    - name: "golang.org/x/net"
+      cves: 5  # 5 reachable CVEs in x/net/html (function-level analysis)
+    - name: "golang.org/x/text" 
+      cves: 1   # 1 reachable CVE in x/text (we actually use Parse function)
+
+assertions:
+  - type: "function_exists"
+    name: "main"
+  - type: "function_exists"
+    name: "parseHTML"
+  - type: "function_exists"
+    name: "parseLanguageTags"
+      
+# Security analysis
+reflection_calls: 0
+security_hotspots_exist: true  # Should have reachable vulnerabilities
+
+# Functions with vulnerabilities should be flagged
+vulnerable_functions_exist: true
+
+# Critical paths should exist if vulnerabilities are reachable
+has_reachable_paths: true

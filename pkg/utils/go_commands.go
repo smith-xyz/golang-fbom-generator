@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -46,4 +47,83 @@ func GetModuleVersions(useVendorMode bool) ([]string, error) {
 	}
 
 	return modules, nil
+}
+
+// GovulncheckResult represents the result of a govulncheck execution
+type GovulncheckResult struct {
+	Output   []byte
+	ExitCode int
+	Error    error
+}
+
+// CheckGovulncheckAvailable checks if govulncheck is available in PATH
+func CheckGovulncheckAvailable(verbose bool) error {
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Checking availability of govulncheck\n")
+	}
+
+	if _, err := exec.LookPath("govulncheck"); err != nil {
+		return fmt.Errorf("govulncheck not found in PATH. Install with: go install golang.org/x/vuln/cmd/govulncheck@latest")
+	}
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "govulncheck is available\n")
+	}
+
+	return nil
+}
+
+// ExecuteGovulncheck runs govulncheck with the specified arguments and working directory
+func ExecuteGovulncheck(args []string, workingDir string, verbose bool) *GovulncheckResult {
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Executing govulncheck: %v in %s\n", args, workingDir)
+	}
+
+	cmd := exec.Command("govulncheck", args...)
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
+
+	output, err := cmd.Output()
+
+	result := &GovulncheckResult{
+		Output: output,
+		Error:  err,
+	}
+
+	// Extract exit code
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			result.ExitCode = exitError.ExitCode()
+		} else {
+			result.ExitCode = -1 // Unknown exit code
+		}
+	} else {
+		result.ExitCode = 0
+	}
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "govulncheck completed with exit code: %d\n", result.ExitCode)
+		if result.Error != nil && result.ExitCode != 0 {
+			fmt.Fprintf(os.Stderr, "govulncheck error (non-fatal if output exists): %v\n", result.Error)
+		}
+	}
+
+	return result
+}
+
+// IsGovulncheckSuccessOrExpectedFailure determines if a govulncheck result should be considered successful
+// For govulncheck, exit code != 0 is expected when vulnerabilities are found
+func IsGovulncheckSuccessOrExpectedFailure(result *GovulncheckResult) bool {
+	// Success case
+	if result.ExitCode == 0 {
+		return true
+	}
+
+	// Expected failure case: govulncheck ran but found vulnerabilities (and produced output)
+	if result.ExitCode != 0 && len(result.Output) > 0 {
+		return true
+	}
+
+	return false
 }

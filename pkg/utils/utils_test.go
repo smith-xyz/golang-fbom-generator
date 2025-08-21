@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -232,4 +234,71 @@ func TestVerboseLogger(t *testing.T) {
 	VerboseLogf(true, "test %s", "formatted")
 	VerboseLog(false, "should not appear")
 	VerboseLogf(false, "should not %s", "appear")
+}
+
+func TestCheckGovulncheckAvailable(t *testing.T) {
+	// Test that CheckGovulncheckAvailable works correctly
+	err := CheckGovulncheckAvailable(false)
+	if err != nil {
+		// This is expected if govulncheck is not installed
+		if !strings.Contains(err.Error(), "govulncheck not found") {
+			t.Errorf("Expected 'govulncheck not found' error, got: %v", err)
+		}
+		t.Skip("Skipping test - govulncheck not available (this is expected in CI/testing environments)")
+	}
+	// If we get here, govulncheck is available
+}
+
+func TestIsGovulncheckSuccessOrExpectedFailure(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   *GovulncheckResult
+		expected bool
+	}{
+		{
+			name: "success case",
+			result: &GovulncheckResult{
+				Output:   []byte("no vulnerabilities found"),
+				ExitCode: 0,
+				Error:    nil,
+			},
+			expected: true,
+		},
+		{
+			name: "expected failure with output",
+			result: &GovulncheckResult{
+				Output:   []byte(`{"osv": {"id": "GO-2023-1234"}}`),
+				ExitCode: 1,
+				Error:    fmt.Errorf("exit status 1"),
+			},
+			expected: true,
+		},
+		{
+			name: "failure without output",
+			result: &GovulncheckResult{
+				Output:   []byte{},
+				ExitCode: 1,
+				Error:    fmt.Errorf("command failed"),
+			},
+			expected: false,
+		},
+		{
+			name: "unknown error",
+			result: &GovulncheckResult{
+				Output:   []byte{},
+				ExitCode: -1,
+				Error:    fmt.Errorf("unknown error"),
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsGovulncheckSuccessOrExpectedFailure(tt.result)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
 }

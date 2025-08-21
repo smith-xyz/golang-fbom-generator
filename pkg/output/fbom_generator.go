@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,8 +17,8 @@ import (
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/config"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/utils"
 )
@@ -30,6 +31,66 @@ type FBOMGenerator struct {
 	contextAwareConfig    *config.ContextAwareConfig
 	additionalEntryPoints []string
 	generatedFBOM         *FBOM // Store the last generated FBOM
+}
+
+// CVE Analysis Types (moved from analysis package)
+
+// Assessment represents the analysis result for a CVE.
+type Assessment struct {
+	CVE                  cve.CVE
+	OriginalPriority     string
+	CalculatedPriority   string
+	ReachabilityStatus   ReachabilityStatus
+	ReflectionRisk       reflection.RiskLevel
+	CallPaths            []CallPath
+	EntryPointDistance   int
+	Justification        string
+	RequiresManualReview bool
+}
+
+// ReachabilityStatus indicates how a vulnerable function can be reached.
+type ReachabilityStatus int
+
+const (
+	NotReachable ReachabilityStatus = iota
+	DirectlyReachable
+	TransitivelyReachable
+	ReflectionPossible
+	Unknown
+)
+
+func (r ReachabilityStatus) String() string {
+	switch r {
+	case NotReachable:
+		return "Not Reachable"
+	case DirectlyReachable:
+		return "Directly Reachable"
+	case TransitivelyReachable:
+		return "Transitively Reachable"
+	case ReflectionPossible:
+		return "Potentially Reachable via Reflection"
+	case Unknown:
+		return "Unknown"
+	default:
+		return "Unknown"
+	}
+}
+
+// CallPath represents a path from an entry point to a vulnerable function
+type CallPath struct {
+	EntryPoint      string
+	VulnerableFunc  string
+	Steps           []string
+	Length          int
+	HasReflection   bool
+	ReflectionNodes []string
+}
+
+// ReachabilityResult represents the result of reachability analysis
+type ReachabilityResult struct {
+	Status      ReachabilityStatus
+	Paths       []CallPath
+	MinDistance int
 }
 
 // NewFBOMGenerator creates a new FBOM generator
@@ -94,10 +155,10 @@ func (g *FBOMGenerator) SetAdditionalEntryPoints(entryPoints []string) error {
 }
 
 // Generate produces FBOM output for user applications only
-func (g *FBOMGenerator) Generate(assessments []analysis.Assessment, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) error {
+func (g *FBOMGenerator) Generate(cveDatabase *cve.CVEDatabase, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) error {
 	g.logger.Debug("Generate function called")
 
-	fbom := g.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+	fbom := g.buildFBOM(cveDatabase, reflectionUsage, callGraph, ssaProgram, mainPackageName)
 
 	// Store the generated FBOM for later access
 	g.generatedFBOM = &fbom
@@ -244,8 +305,6 @@ type ExternalFunctionCall struct {
 // SecurityInfo contains security-relevant information
 type SecurityInfo struct {
 	VulnerableFunctions        []VulnerableFunction `json:"vulnerable_functions"`
-	SecurityHotspots           []SecurityHotspot    `json:"security_hotspots"`
-	CriticalPaths              []CriticalPath       `json:"critical_paths"`
 	UnreachableVulnerabilities []string             `json:"unreachable_vulnerabilities"`
 	ReflectionCallsCount       int                  `json:"reflection_calls_count"`
 	TotalCVEsFound             int                  `json:"total_cves_found"`
@@ -256,7 +315,6 @@ type SecurityInfo struct {
 type VulnerableFunction struct {
 	FunctionId        string   `json:"function_id"`
 	CVEs              []string `json:"cves"`
-	IsReachable       bool     `json:"is_reachable"`
 	ReachabilityPaths []string `json:"reachability_paths"`
 	RiskScore         float64  `json:"risk_score"`
 	Impact            string   `json:"impact"` // critical, high, medium, low
@@ -301,8 +359,13 @@ type CriticalPath struct {
 	RiskScore  float64  `json:"risk_score"`
 }
 
+// BuildFBOM constructs the complete FBOM structure and returns it without outputting to stdout
+func (g *FBOMGenerator) BuildFBOM(cveDatabase *cve.CVEDatabase, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) FBOM {
+	return g.buildFBOM(cveDatabase, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+}
+
 // buildFBOM constructs the complete FBOM structure
-func (g *FBOMGenerator) buildFBOM(assessments []analysis.Assessment, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) FBOM {
+func (g *FBOMGenerator) buildFBOM(cveDatabase *cve.CVEDatabase, reflectionUsage map[string]*reflection.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program, mainPackageName string) FBOM {
 	g.logger.Debug("buildFBOM function called")
 
 	// Extract packages and build function inventory
@@ -311,14 +374,22 @@ func (g *FBOMGenerator) buildFBOM(assessments []analysis.Assessment, reflectionU
 	callGraphInfo := g.buildCallGraphInfo(callGraph, allFunctions)
 	entryPoints := g.buildEntryPoints(callGraph)
 
-	// Build security information
-	securityInfo := g.buildSecurityInfo(assessments, reflectionUsage)
-
 	// Get the actual module name instead of using mainPackageName
 	actualModuleName := g.extractMainModuleName(ssaProgram, mainPackageName)
 
 	// Build dependency clusters for attack surface analysis
 	dependencyClusters := g.buildDependencyClusters(callGraph, allFunctions)
+
+	// Perform CVE analysis if CVE database is provided
+	var assessments []Assessment
+	if cveDatabase != nil {
+		assessments = g.analyzeCVEs(cveDatabase, callGraph, ssaProgram, reflectionUsage, dependencyClusters)
+		// Update function CVE references based on analysis results
+		g.populateFunctionCVEReferences(allFunctions, assessments, dependencyClusters)
+	}
+
+	// Build security information
+	securityInfo := g.buildSecurityInfo(assessments, reflectionUsage)
 
 	return FBOM{
 		FBOMVersion: "0.1.0",
@@ -396,6 +467,9 @@ func (g *FBOMGenerator) findModuleNameFromGoMod() string {
 
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
+		if !filepath.IsAbs(goModPath) {
+			goModPath = filepath.Clean(goModPath)
+		}
 		if content, err := os.ReadFile(goModPath); err == nil {
 			// Parse go.mod using Go's official parser
 			parsed, err := modfile.Parse(goModPath, content, nil)
@@ -1465,14 +1539,14 @@ func (g *FBOMGenerator) inferSecurityLevel(fn *ssa.Function) string {
 	return "internal"
 }
 
-func (g *FBOMGenerator) buildSecurityInfo(assessments []analysis.Assessment, reflectionUsage map[string]*reflection.Usage) SecurityInfo {
+func (g *FBOMGenerator) buildSecurityInfo(assessments []Assessment, reflectionUsage map[string]*reflection.Usage) SecurityInfo {
 	vulnerableFunctions := make([]VulnerableFunction, 0)
 	unreachableVulnerabilities := make([]string, 0)
 	reachableCount := 0
 
 	// Process each CVE assessment
 	for _, assessment := range assessments {
-		if assessment.ReachabilityStatus == analysis.NotReachable {
+		if assessment.ReachabilityStatus == NotReachable {
 			unreachableVulnerabilities = append(unreachableVulnerabilities, assessment.CVE.ID)
 		} else {
 			reachableCount++
@@ -1482,7 +1556,6 @@ func (g *FBOMGenerator) buildSecurityInfo(assessments []analysis.Assessment, ref
 				vulnFunc := VulnerableFunction{
 					FunctionId:        path.VulnerableFunc,
 					CVEs:              []string{assessment.CVE.ID},
-					IsReachable:       true,
 					ReachabilityPaths: []string{path.EntryPoint},
 					RiskScore:         g.calculateRiskScore(assessment),
 					Impact:            strings.ToLower(assessment.CalculatedPriority),
@@ -1494,8 +1567,6 @@ func (g *FBOMGenerator) buildSecurityInfo(assessments []analysis.Assessment, ref
 
 	return SecurityInfo{
 		VulnerableFunctions:        vulnerableFunctions,
-		SecurityHotspots:           []SecurityHotspot{},
-		CriticalPaths:              []CriticalPath{},
 		UnreachableVulnerabilities: unreachableVulnerabilities,
 		ReflectionCallsCount:       len(reflectionUsage),
 		TotalCVEsFound:             len(assessments),
@@ -1504,16 +1575,16 @@ func (g *FBOMGenerator) buildSecurityInfo(assessments []analysis.Assessment, ref
 }
 
 // calculateRiskScore calculates a risk score based on the assessment
-func (g *FBOMGenerator) calculateRiskScore(assessment analysis.Assessment) float64 {
+func (g *FBOMGenerator) calculateRiskScore(assessment Assessment) float64 {
 	baseScore := 5.0 // Default medium risk
 
 	// Adjust based on reachability
 	switch assessment.ReachabilityStatus {
-	case analysis.DirectlyReachable:
+	case DirectlyReachable:
 		baseScore += 3.0
-	case analysis.TransitivelyReachable:
+	case TransitivelyReachable:
 		baseScore += 1.0
-	case analysis.ReflectionPossible:
+	case ReflectionPossible:
 		baseScore += 0.5
 	}
 
@@ -1532,6 +1603,439 @@ func (g *FBOMGenerator) calculateRiskScore(assessment analysis.Assessment) float
 	}
 
 	return baseScore
+}
+
+// analyzeCVEs performs CVE analysis and returns assessments
+func (g *FBOMGenerator) analyzeCVEs(cveDatabase *cve.CVEDatabase, callGraph *callgraph.Graph, ssaProgram *ssa.Program, reflectionUsage map[string]*reflection.Usage, dependencyClusters []DependencyCluster) []Assessment {
+	if g.verbose {
+		g.logger.Debug("Starting CVE analysis", "cve_count", len(cveDatabase.CVEs))
+	}
+
+	var assessments []Assessment
+	for _, vulnCVE := range cveDatabase.CVEs {
+		assessment := g.analyzeCVE(vulnCVE, callGraph, ssaProgram, reflectionUsage, dependencyClusters)
+		if assessment != nil {
+			assessments = append(assessments, *assessment)
+		}
+	}
+
+	if g.verbose {
+		g.logger.Debug("Completed CVE analysis", "assessment_count", len(assessments))
+	}
+
+	return assessments
+}
+
+// analyzeCVE performs detailed analysis on a single CVE
+func (g *FBOMGenerator) analyzeCVE(targetCVE cve.CVE, callGraph *callgraph.Graph, ssaProgram *ssa.Program, reflectionUsage map[string]*reflection.Usage, dependencyClusters []DependencyCluster) *Assessment {
+	if g.verbose {
+		g.logger.Debug("Analyzing CVE", "cve_id", targetCVE.ID, "package", targetCVE.VulnerablePackage)
+	}
+
+	assessment := &Assessment{
+		CVE:              targetCVE,
+		OriginalPriority: targetCVE.OriginalSeverity,
+	}
+
+	// Step 1: Find vulnerable functions in the call graph
+	vulnerableNodes := g.findVulnerableFunctions(callGraph, targetCVE)
+	if len(vulnerableNodes) == 0 {
+		assessment.ReachabilityStatus = NotReachable
+
+		// ENHANCED: Check for high reflection risk even when functions aren't directly reachable
+		// This is critical for cases where vulnerable functions might be called via reflection
+		maxReflectionRisk := g.assessGlobalReflectionRisk(reflectionUsage, targetCVE.VulnerablePackage)
+		assessment.ReflectionRisk = maxReflectionRisk
+
+		if maxReflectionRisk >= reflection.RiskHigh {
+			assessment.CalculatedPriority = "UNCERTAIN (High reflection risk - manual review required)"
+			assessment.Justification = "Vulnerable functions not in static call graph, but high-risk reflection detected"
+			assessment.RequiresManualReview = true
+		} else {
+			assessment.CalculatedPriority = "Low (Vulnerable function not found in call graph)"
+			assessment.Justification = "Vulnerable functions not found in call graph"
+		}
+		return assessment
+	}
+
+	// Step 2: Analyze reachability from entry points
+	var reachability ReachabilityResult
+	// Use cluster-based analysis if dependency clusters are available
+	if len(dependencyClusters) > 0 {
+		reachability = g.analyzeReachabilityWithClusters(vulnerableNodes, targetCVE, dependencyClusters)
+	} else {
+		// Fallback to traditional path-finding
+		entryPoints := g.additionalEntryPoints // Use configured entry points
+		reachability = g.analyzeReachability(callGraph, vulnerableNodes, entryPoints)
+	}
+
+	assessment.ReachabilityStatus = reachability.Status
+	assessment.CallPaths = reachability.Paths
+	assessment.EntryPointDistance = reachability.MinDistance
+
+	// Step 3: Check for reflection usage in call paths
+	reflectionRisk := g.assessReflectionRisk(reflectionUsage, reachability.Paths)
+	assessment.ReflectionRisk = reflectionRisk
+
+	// Step 4: Calculate final priority using sophisticated algorithm
+	assessment.CalculatedPriority = g.calculatePriority(targetCVE, reachability, reflectionRisk)
+	assessment.Justification = g.generateJustification(assessment)
+	assessment.RequiresManualReview = g.requiresManualReview(assessment)
+
+	if g.verbose {
+		g.logger.Debug("CVE analysis complete", "cve_id", targetCVE.ID, "reachability_status", assessment.ReachabilityStatus, "vulnerable_nodes", len(vulnerableNodes), "call_paths", len(reachability.Paths))
+	}
+
+	return assessment
+}
+
+// findVulnerableFunctions finds call graph nodes that match vulnerable functions
+func (g *FBOMGenerator) findVulnerableFunctions(callGraph *callgraph.Graph, targetCVE cve.CVE) []*callgraph.Node {
+	var vulnerableNodes []*callgraph.Node
+
+	if callGraph == nil {
+		if g.verbose {
+			g.logger.Debug("Call graph is nil, cannot find vulnerable functions")
+		}
+		return vulnerableNodes
+	}
+
+	if g.verbose {
+		g.logger.Debug("Finding vulnerable functions", "cve_id", targetCVE.ID, "vulnerable_package", targetCVE.VulnerablePackage, "vulnerable_functions", targetCVE.VulnerableFunctions, "total_nodes", len(callGraph.Nodes))
+	}
+
+	for fn, node := range callGraph.Nodes {
+		if fn == nil || node == nil {
+			continue
+		}
+
+		// Check if package information is available
+		if fn.Pkg == nil || fn.Pkg.Pkg == nil {
+			continue
+		}
+
+		funcName := fn.Name()
+		packagePath := fn.Pkg.Pkg.Path()
+
+		// Check if this function matches the vulnerable package and functions
+		if strings.HasPrefix(packagePath, targetCVE.VulnerablePackage) {
+			for _, vulnFunc := range targetCVE.VulnerableFunctions {
+				if strings.Contains(funcName, vulnFunc) {
+					vulnerableNodes = append(vulnerableNodes, node)
+					if g.verbose {
+						g.logger.Debug("Found vulnerable function", "function", funcName, "package", packagePath)
+					}
+				}
+			}
+		}
+	}
+
+	return vulnerableNodes
+}
+
+// analyzeReachabilityWithClusters uses dependency clusters for reachability analysis
+func (g *FBOMGenerator) analyzeReachabilityWithClusters(vulnerableNodes []*callgraph.Node, targetCVE cve.CVE, dependencyClusters []DependencyCluster) ReachabilityResult {
+	result := ReachabilityResult{
+		Status:      NotReachable,
+		MinDistance: -1,
+	}
+
+	if g.verbose {
+		g.logger.Debug("Using cluster-based reachability analysis", "cve_id", targetCVE.ID, "vulnerable_nodes", len(vulnerableNodes), "dependency_clusters", len(dependencyClusters))
+	}
+
+	// For each vulnerable function, check if it's in any dependency cluster
+	for _, vulnNode := range vulnerableNodes {
+		vulnFuncName := vulnNode.Func.Name()
+		vulnPackage := vulnNode.Func.Pkg.Pkg.Path()
+
+		if g.verbose {
+			g.logger.Debug("Checking reachability for vulnerable function", "function", vulnFuncName, "package", vulnPackage)
+		}
+
+		// Check each dependency cluster
+		for _, cluster := range dependencyClusters {
+			// Skip if cluster is not for the vulnerable package
+			if !strings.HasPrefix(cluster.Name, targetCVE.VulnerablePackage) {
+				continue
+			}
+
+			if g.verbose {
+				g.logger.Debug("Checking cluster", "cluster", cluster.Name, "functions", len(cluster.ClusterFunctions), "entry_points", len(cluster.EntryPoints))
+			}
+
+			// Check if the vulnerable function is in this cluster's functions
+			isInCluster := false
+			for _, clusterFunc := range cluster.ClusterFunctions {
+				if strings.Contains(clusterFunc, vulnFuncName) {
+					isInCluster = true
+					break
+				}
+			}
+
+			if !isInCluster {
+				continue
+			}
+
+			// If the cluster has entry points, the function is reachable
+			if len(cluster.EntryPoints) > 0 {
+				if g.verbose {
+					g.logger.Debug("Found reachable vulnerable function", "function", vulnFuncName, "cluster", cluster.Name, "entry_points", len(cluster.EntryPoints))
+				}
+
+				// Create call paths showing reachability via cluster
+				for _, entryPoint := range cluster.EntryPoints {
+					callPath := CallPath{
+						EntryPoint:     fmt.Sprintf("USER_CODE -> %s", entryPoint.Function),
+						VulnerableFunc: vulnFuncName,
+						Steps:          []string{entryPoint.Function, vulnFuncName},
+						Length:         2, // Entry point -> vulnerable function
+						HasReflection:  false,
+					}
+					result.Paths = append(result.Paths, callPath)
+				}
+
+				// Mark as reachable
+				result.Status = TransitivelyReachable
+				result.MinDistance = 2 // Conservative estimate
+
+				// If there are multiple entry points, it's highly reachable
+				if len(cluster.EntryPoints) > 1 {
+					result.Status = DirectlyReachable
+					result.MinDistance = 1
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// analyzeReachability determines how vulnerable functions can be reached from entry points (traditional approach)
+func (g *FBOMGenerator) analyzeReachability(callGraph *callgraph.Graph, vulnerableNodes []*callgraph.Node, entryPoints []string) ReachabilityResult {
+	result := ReachabilityResult{
+		Status:      NotReachable,
+		MinDistance: -1,
+	}
+
+	// For each vulnerable function, find paths from entry points
+	for _, vulnNode := range vulnerableNodes {
+		paths := g.findPathsToFunction(entryPoints, vulnNode, callGraph)
+		result.Paths = append(result.Paths, paths...)
+
+		if len(paths) > 0 {
+			// Update reachability status
+			if result.Status == NotReachable {
+				result.Status = TransitivelyReachable
+			}
+
+			// Check for direct reachability (path length = 1)
+			for _, path := range paths {
+				if path.Length == 1 {
+					result.Status = DirectlyReachable
+				}
+				if result.MinDistance == -1 || path.Length < result.MinDistance {
+					result.MinDistance = path.Length
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// findPathsToFunction finds call paths from entry points to a target function
+func (g *FBOMGenerator) findPathsToFunction(entryPoints []string, target *callgraph.Node, callGraph *callgraph.Graph) []CallPath {
+	var paths []CallPath
+
+	// Simplified BFS to find paths (in a real implementation, you might want to limit depth)
+	type pathNode struct {
+		node  *callgraph.Node
+		path  []string
+		depth int
+	}
+
+	queue := []*pathNode{}
+	visited := make(map[*callgraph.Node]bool)
+
+	// Start from the target and work backwards to entry points
+	queue = append(queue, &pathNode{
+		node:  target,
+		path:  []string{target.Func.String()},
+		depth: 0,
+	})
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if visited[current.node] {
+			continue
+		}
+		visited[current.node] = true
+
+		// Check if this is an entry point
+		if g.isEntryPointForCVE(current.node, entryPoints) {
+			// Found a path from entry point to target
+			path := CallPath{
+				EntryPoint:     current.node.Func.String(),
+				VulnerableFunc: target.Func.String(),
+				Steps:          current.path,
+				Length:         current.depth,
+			}
+			paths = append(paths, path)
+			continue
+		}
+
+		// Add callers to the queue
+		for _, caller := range current.node.In {
+			if caller.Caller != nil && !visited[caller.Caller] {
+				newPath := make([]string, len(current.path)+1)
+				newPath[0] = caller.Caller.Func.String()
+				copy(newPath[1:], current.path)
+
+				queue = append(queue, &pathNode{
+					node:  caller.Caller,
+					path:  newPath,
+					depth: current.depth + 1,
+				})
+			}
+		}
+	}
+
+	return paths
+}
+
+// isEntryPointForCVE checks if a function is considered an entry point for CVE analysis
+func (g *FBOMGenerator) isEntryPointForCVE(node *callgraph.Node, entryPoints []string) bool {
+	if node.Func == nil {
+		return false
+	}
+
+	funcString := node.Func.String()
+
+	// Default entry point: any main function (package.main)
+	// This handles both "main.main" and "package-name.main" patterns
+	if strings.HasSuffix(funcString, ".main") {
+		return true
+	}
+
+	// Check user-defined entry points
+	for _, ep := range entryPoints {
+		if strings.Contains(funcString, ep) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// assessReflectionRisk evaluates reflection risk in the call paths
+func (g *FBOMGenerator) assessReflectionRisk(reflectionUsage map[string]*reflection.Usage, paths []CallPath) reflection.RiskLevel {
+	maxRisk := reflection.RiskNone
+
+	for i := range paths {
+		path := &paths[i]
+		for _, step := range path.Steps {
+			if usage, exists := reflectionUsage[step]; exists && usage.UsesReflection {
+				path.HasReflection = true
+				path.ReflectionNodes = append(path.ReflectionNodes, step)
+				if usage.ReflectionRisk > maxRisk {
+					maxRisk = usage.ReflectionRisk
+				}
+			}
+		}
+	}
+
+	return maxRisk
+}
+
+// assessGlobalReflectionRisk checks for reflection usage that might call vulnerable packages
+func (g *FBOMGenerator) assessGlobalReflectionRisk(reflectionUsage map[string]*reflection.Usage, vulnerablePackage string) reflection.RiskLevel {
+	maxRisk := reflection.RiskNone
+
+	for funcName, usage := range reflectionUsage {
+		if usage.UsesReflection {
+			// Check if this function has high-risk reflection calls
+			if usage.ReflectionRisk >= reflection.RiskHigh {
+				if g.verbose {
+					g.logger.Debug("High-risk reflection found", "function", funcName, "risk", usage.ReflectionRisk.String(), "could_call", vulnerablePackage)
+				}
+				maxRisk = usage.ReflectionRisk
+			}
+		}
+	}
+
+	return maxRisk
+}
+
+// calculatePriority determines the final priority based on all factors
+func (g *FBOMGenerator) calculatePriority(targetCVE cve.CVE, reachability ReachabilityResult, reflectionRisk reflection.RiskLevel) string {
+	originalSeverity := cve.ParseSeverity(targetCVE.OriginalSeverity)
+
+	// Start with original severity
+	newSeverity := originalSeverity
+
+	// Adjust based on reachability
+	switch reachability.Status {
+	case NotReachable:
+		// Significantly lower priority
+		if newSeverity > cve.SeverityLow {
+			newSeverity = cve.SeverityLow
+		}
+	case DirectlyReachable:
+		// Keep high priority, possibly increase
+		if reachability.MinDistance <= 2 && newSeverity == cve.SeverityHigh {
+			newSeverity = cve.SeverityCritical
+		}
+	case TransitivelyReachable:
+		// Adjust based on distance
+		if reachability.MinDistance > 5 {
+			// Far from entry points, lower priority
+			if newSeverity > cve.SeverityMedium {
+				newSeverity--
+			}
+		}
+	}
+
+	// Factor in reflection risk
+	if reflectionRisk >= reflection.RiskHigh {
+		return "UNCERTAIN (High reflection risk - manual review required)"
+	} else if reflectionRisk >= reflection.RiskMedium {
+		return newSeverity.String() + " (Caution: Reflection in call path)"
+	}
+
+	return newSeverity.String()
+}
+
+// generateJustification creates a human-readable explanation for the assessment
+func (g *FBOMGenerator) generateJustification(assessment *Assessment) string {
+	parts := []string{}
+
+	switch assessment.ReachabilityStatus {
+	case NotReachable:
+		parts = append(parts, "Vulnerable functions not found in call graph")
+	case DirectlyReachable:
+		parts = append(parts, fmt.Sprintf("Directly reachable from entry points (distance: %d)", assessment.EntryPointDistance))
+	case TransitivelyReachable:
+		parts = append(parts, fmt.Sprintf("Reachable via %d call paths (min distance: %d)", len(assessment.CallPaths), assessment.EntryPointDistance))
+	}
+
+	if assessment.ReflectionRisk > reflection.RiskNone {
+		parts = append(parts, fmt.Sprintf("Reflection risk: %s", assessment.ReflectionRisk.String()))
+	}
+
+	if len(parts) == 0 {
+		return "Analysis completed"
+	}
+
+	return strings.Join(parts, "; ")
+}
+
+// requiresManualReview determines if manual review is needed
+func (g *FBOMGenerator) requiresManualReview(assessment *Assessment) bool {
+	return assessment.ReflectionRisk >= reflection.RiskHigh ||
+		strings.Contains(assessment.CalculatedPriority, "UNCERTAIN")
 }
 
 func (g *FBOMGenerator) extractDependencies(packages []string, allFunctions []Function, callGraph *callgraph.Graph) []Dependency {
@@ -1956,4 +2460,304 @@ func (g *FBOMGenerator) removeDuplicateStrings(strs []string) []string {
 
 	sort.Strings(result)
 	return result
+}
+
+// populateFunctionCVEReferences updates function CVE references based on analysis results
+// This includes both direct call path functions and transitive blast radius functions
+func (g *FBOMGenerator) populateFunctionCVEReferences(functions []Function, assessments []Assessment, dependencyClusters []DependencyCluster) {
+	// Create a map for fast function lookup by full name
+	functionMap := make(map[string]*Function)
+	// Also create a map for short name lookups (just the function name)
+	shortNameMap := make(map[string]*Function)
+
+	for i := range functions {
+		functionMap[functions[i].FullName] = &functions[i]
+		// Also map by short name (last part after the last dot)
+		shortName := functions[i].Name
+		if shortName != "" {
+			shortNameMap[shortName] = &functions[i]
+		}
+	}
+
+	if g.verbose {
+		g.logger.Debug("Function maps created", "full_name_count", len(functionMap), "short_name_count", len(shortNameMap))
+	}
+
+	// For each CVE assessment, update the CVE references of involved functions
+	for _, assessment := range assessments {
+		if assessment.ReachabilityStatus == NotReachable {
+			continue // Skip unreachable CVEs
+		}
+
+		// Process each call path to find functions involved
+		for _, path := range assessment.CallPaths {
+			if g.verbose {
+				g.logger.Debug("Processing call path", "cve_id", assessment.CVE.ID, "vulnerable_func", path.VulnerableFunc, "entry_point", path.EntryPoint, "steps", len(path.Steps))
+			}
+
+			// Add CVE reference to the vulnerable function
+			vulnFunc := g.findFunctionInMaps(path.VulnerableFunc, functionMap, shortNameMap)
+			if vulnFunc != nil {
+				vulnFunc.UsageInfo.CVEReferences = g.addUniqueString(vulnFunc.UsageInfo.CVEReferences, assessment.CVE.ID)
+				if g.verbose {
+					g.logger.Debug("Added CVE reference to vulnerable function", "function", path.VulnerableFunc, "cve_id", assessment.CVE.ID)
+				}
+			} else if g.verbose {
+				g.logger.Debug("Vulnerable function not found in function map", "function", path.VulnerableFunc, "cve_id", assessment.CVE.ID)
+			}
+
+			// Add CVE reference to the entry point function
+			entryFunc := g.findFunctionInMaps(path.EntryPoint, functionMap, shortNameMap)
+			if entryFunc != nil {
+				entryFunc.UsageInfo.CVEReferences = g.addUniqueString(entryFunc.UsageInfo.CVEReferences, assessment.CVE.ID)
+				if g.verbose {
+					g.logger.Debug("Added CVE reference to entry point function", "function", path.EntryPoint, "cve_id", assessment.CVE.ID)
+				}
+			} else if g.verbose {
+				g.logger.Debug("Entry point function not found in function map", "function", path.EntryPoint, "cve_id", assessment.CVE.ID)
+			}
+
+			// Add CVE reference to any intermediate functions in the path
+			for _, stepFunc := range path.Steps {
+				stepFunction := g.findFunctionInMaps(stepFunc, functionMap, shortNameMap)
+				if stepFunction != nil {
+					stepFunction.UsageInfo.CVEReferences = g.addUniqueString(stepFunction.UsageInfo.CVEReferences, assessment.CVE.ID)
+					if g.verbose {
+						g.logger.Debug("Added CVE reference to step function", "function", stepFunc, "cve_id", assessment.CVE.ID)
+					}
+				} else if g.verbose {
+					g.logger.Debug("Step function not found in function map", "function", stepFunc, "cve_id", assessment.CVE.ID)
+				}
+			}
+		}
+	}
+
+	g.propagateTransitiveCVEReferences(functions, functionMap, dependencyClusters)
+
+	if g.verbose {
+		// Log statistics about CVE reference population
+		totalFunctionsWithCVEs := 0
+		for _, function := range functions {
+			if len(function.UsageInfo.CVEReferences) > 0 {
+				totalFunctionsWithCVEs++
+			}
+		}
+		g.logger.Debug("Populated CVE references (including transitive)", "functions_with_cves", totalFunctionsWithCVEs, "total_assessments", len(assessments))
+	}
+}
+
+// findFunctionInMaps tries to find a function using sophisticated matching strategies
+func (g *FBOMGenerator) findFunctionInMaps(name string, fullNameMap map[string]*Function, shortNameMap map[string]*Function) *Function {
+	if g.verbose {
+		g.logger.Debug("Searching for function", "name", name)
+	}
+
+	// Strategy 1: Try exact match with full name
+	if fn, exists := fullNameMap[name]; exists {
+		if g.verbose {
+			g.logger.Debug("Found exact full name match", "name", name, "matched", fn.FullName)
+		}
+		return fn
+	}
+
+	// Strategy 2: Handle patterns like "USER_CODE -> functionName"
+	if strings.Contains(name, " -> ") {
+		parts := strings.Split(name, " -> ")
+		if len(parts) >= 2 {
+			targetFunc := parts[len(parts)-1] // Get the last part (actual function name)
+			if g.verbose {
+				g.logger.Debug("Extracted function name from path", "original", name, "extracted", targetFunc)
+			}
+			return g.findBestUserFunctionMatch(targetFunc, fullNameMap, shortNameMap)
+		}
+	}
+
+	// Strategy 3: For simple names, try to find the best user function match
+	return g.findBestUserFunctionMatch(name, fullNameMap, shortNameMap)
+}
+
+// findBestUserFunctionMatch finds the best matching user function for a given name
+func (g *FBOMGenerator) findBestUserFunctionMatch(name string, fullNameMap map[string]*Function, shortNameMap map[string]*Function) *Function {
+	// First try exact short name match (most common case)
+	if fn, exists := shortNameMap[name]; exists {
+		if g.verbose {
+			g.logger.Debug("Found exact short name match", "name", name, "matched", fn.FullName)
+		}
+		return fn
+	}
+
+	// Strategy: Look for functions where the name appears in the full name
+	// This handles cases where call paths reference external functions that we don't track
+	var candidates []*Function
+
+	for _, fn := range fullNameMap {
+		// Check if the short name matches
+		if fn.Name == name {
+			candidates = append(candidates, fn)
+		}
+		// Also check if the name appears as a suffix (e.g., "parseHTML" matches "HTML")
+		if strings.HasSuffix(fn.Name, name) {
+			candidates = append(candidates, fn)
+		}
+	}
+
+	if len(candidates) == 1 {
+		if g.verbose {
+			g.logger.Debug("Found single candidate match", "name", name, "matched", candidates[0].FullName)
+		}
+		return candidates[0]
+	} else if len(candidates) > 1 {
+		if g.verbose {
+			var candidateNames []string
+			for _, c := range candidates {
+				candidateNames = append(candidateNames, c.FullName)
+			}
+			g.logger.Debug("Multiple candidates found, returning first", "name", name, "candidates", candidateNames)
+		}
+		// Return the first candidate, but log the ambiguity
+		return candidates[0]
+	}
+
+	if g.verbose {
+		g.logger.Debug("No function match found", "name", name)
+	}
+	return nil
+}
+
+// propagateTransitiveCVEReferences propagates CVE references to all functions
+// that transitively call vulnerable functions (blast radius analysis)
+func (g *FBOMGenerator) propagateTransitiveCVEReferences(functions []Function, functionMap map[string]*Function, dependencyClusters []DependencyCluster) {
+	if g.verbose {
+		g.logger.Debug("Starting transitive CVE reference propagation")
+	}
+
+	// Build a reverse call graph from dependency clusters: external function -> list of user functions that call it
+	callerMap := make(map[string][]*Function)
+
+	// Extract call relationships from dependency clusters
+	for _, cluster := range dependencyClusters {
+		for _, entryPoint := range cluster.EntryPoints {
+			// entryPoint.Function is the external function (e.g., "Parse")
+			// entryPoint.CalledFrom contains user functions that call it (e.g., ["parseHTML", "parseLanguageTags"])
+			externalFuncName := entryPoint.Function
+
+			for _, callerName := range entryPoint.CalledFrom {
+				// Find the user function that calls this external function
+				if userFunc := g.findFunctionInMaps(callerName, functionMap, nil); userFunc != nil {
+					callerMap[externalFuncName] = append(callerMap[externalFuncName], userFunc)
+					if g.verbose {
+						g.logger.Debug("Mapped call relationship from dependency cluster",
+							"external_func", externalFuncName,
+							"user_func", userFunc.FullName,
+							"cluster", cluster.Name)
+					}
+				}
+			}
+		}
+	}
+
+	if g.verbose {
+		g.logger.Debug("Built reverse call graph from dependency clusters", "external_functions", len(callerMap))
+	}
+
+	// Find all functions that currently have CVE references (initial vulnerable functions)
+	// These are external library functions like "Parse", "init"
+	var vulnerableFunctions []*Function
+	for i := range functions {
+		if len(functions[i].UsageInfo.CVEReferences) > 0 {
+			vulnerableFunctions = append(vulnerableFunctions, &functions[i])
+		}
+	}
+
+	if g.verbose {
+		g.logger.Debug("Found initial vulnerable functions", "count", len(vulnerableFunctions))
+	}
+
+	// Step 1: Propagate CVE references from external vulnerable functions to user functions that call them
+	userFunctionsToPropagate := make([]*Function, 0)
+	propagatedCount := 0
+
+	for _, vulnFunc := range vulnerableFunctions {
+		// vulnFunc.Name is something like "Parse" or "init"
+		// Look up which user functions call this external function
+		if callers, exists := callerMap[vulnFunc.Name]; exists {
+			for _, userFunc := range callers {
+				// Propagate CVE references from external function to user function
+				for _, cveID := range vulnFunc.UsageInfo.CVEReferences {
+					userFunc.UsageInfo.CVEReferences = g.addUniqueString(userFunc.UsageInfo.CVEReferences, cveID)
+				}
+				userFunctionsToPropagate = append(userFunctionsToPropagate, userFunc)
+				propagatedCount++
+
+				if g.verbose {
+					g.logger.Debug("Propagated CVE references from external to user function",
+						"external_func", vulnFunc.Name,
+						"user_func", userFunc.FullName,
+						"cve_count", len(vulnFunc.UsageInfo.CVEReferences))
+				}
+			}
+		}
+	}
+
+	// Step 2: Build user function call graph and propagate transitively within user functions
+	// Build reverse call graph for user functions: user function -> list of user functions that call it
+	userCallerMap := make(map[string][]*Function)
+	for i := range functions {
+		fn := &functions[i]
+		for _, calledFunc := range fn.UsageInfo.Calls {
+			if targetFunc, exists := functionMap[calledFunc]; exists {
+				userCallerMap[targetFunc.FullName] = append(userCallerMap[targetFunc.FullName], fn)
+			}
+		}
+	}
+
+	// Step 3: Continue propagating within user function call chains using BFS
+	visited := make(map[string]bool)
+	queue := make([]*Function, 0, len(userFunctionsToPropagate))
+
+	// Initialize queue with user functions that now have CVE references
+	for _, userFunc := range userFunctionsToPropagate {
+		queue = append(queue, userFunc)
+		visited[userFunc.FullName] = true
+	}
+
+	for len(queue) > 0 {
+		currentFunc := queue[0]
+		queue = queue[1:]
+
+		// Find user functions that call this user function
+		if callers, exists := userCallerMap[currentFunc.FullName]; exists {
+			for _, caller := range callers {
+				if !visited[caller.FullName] {
+					// Propagate all CVE references from the current function to its caller
+					for _, cveID := range currentFunc.UsageInfo.CVEReferences {
+						caller.UsageInfo.CVEReferences = g.addUniqueString(caller.UsageInfo.CVEReferences, cveID)
+					}
+
+					visited[caller.FullName] = true
+					queue = append(queue, caller)
+					propagatedCount++
+
+					if g.verbose {
+						g.logger.Debug("Propagated CVE references transitively within user functions",
+							"from", currentFunc.FullName,
+							"to", caller.FullName,
+							"cve_count", len(currentFunc.UsageInfo.CVEReferences))
+					}
+				}
+			}
+		}
+	}
+
+	if g.verbose {
+		g.logger.Debug("Transitive CVE propagation completed", "propagated_to_functions", propagatedCount)
+	}
+}
+
+// addUniqueString adds a string to a slice if it doesn't already exist
+func (g *FBOMGenerator) addUniqueString(slice []string, str string) []string {
+	if slices.Contains(slice, str) {
+		return slice // Already exists
+	}
+	return append(slice, str)
 }

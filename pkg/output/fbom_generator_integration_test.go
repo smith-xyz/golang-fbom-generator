@@ -11,7 +11,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
 
-	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/reflection"
 )
@@ -54,10 +53,10 @@ func unusedFunction() {
 	}
 
 	// Generate FBOM with real data
-	assessments := []analysis.Assessment{}
+
 	reflectionUsage := map[string]*reflection.Usage{}
 
-	fbom := generator.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, "main")
+	fbom := generator.buildFBOM(nil, reflectionUsage, callGraph, ssaProgram, "main")
 
 	// Test that it found user-defined functions
 	if len(fbom.Functions) == 0 {
@@ -172,9 +171,7 @@ func useReflection(input interface{}) {
 		},
 	}
 
-	assessments := []analysis.Assessment{}
-
-	fbom := generator.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, "main")
+	fbom := generator.buildFBOM(nil, reflectionUsage, callGraph, ssaProgram, "main")
 
 	// Check that reflection information is captured
 	if fbom.SecurityInfo.ReflectionCallsCount != 1 {
@@ -218,20 +215,20 @@ func vulnerableFunction() {
 	}
 
 	// Create a mock CVE assessment
-	assessments := []analysis.Assessment{
-		{
-			CVE: cve.CVE{
+	// Create CVE database for testing
+	cveDB := &cve.CVEDatabase{
+		CVEs: []cve.CVE{
+			{
 				ID:                  "CVE-2023-TEST",
 				VulnerablePackage:   "main",
 				VulnerableFunctions: []string{"vulnerableFunction"},
 			},
-			ReachabilityStatus: analysis.DirectlyReachable,
 		},
 	}
 
 	reflectionUsage := map[string]*reflection.Usage{}
 
-	fbom := generator.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, "main")
+	fbom := generator.buildFBOM(cveDB, reflectionUsage, callGraph, ssaProgram, "main")
 
 	// Check that CVE information is captured
 	if fbom.SecurityInfo.TotalCVEsFound != 1 {
@@ -270,10 +267,9 @@ func userFunction() {
 		t.Fatalf("Failed to build call graph: %v", err)
 	}
 
-	assessments := []analysis.Assessment{}
 	reflectionUsage := map[string]*reflection.Usage{}
 
-	fbom := generator.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, "main")
+	fbom := generator.buildFBOM(nil, reflectionUsage, callGraph, ssaProgram, "main")
 
 	// Verify filtering behavior
 	for _, fn := range fbom.Functions {
@@ -397,12 +393,11 @@ func processData(input string) string {
 		b.Fatalf("Failed to build call graph: %v", err)
 	}
 
-	assessments := []analysis.Assessment{}
 	reflectionUsage := map[string]*reflection.Usage{}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_ = generator.buildFBOM(assessments, reflectionUsage, callGraph, ssaProgram, "main")
+		_ = generator.buildFBOM(nil, reflectionUsage, callGraph, ssaProgram, "main")
 	}
 }

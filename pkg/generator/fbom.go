@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/callgraph"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/config"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/cve"
@@ -51,67 +50,30 @@ func GenerateFBOM(packageSpec, cveFile string, verbose bool, algorithm string, e
 			return fmt.Errorf("failed to analyze reflection: %w", err)
 		}
 
-		// Generate FBOM first to get dependency clusters
-		fbomGenerator := output.NewFBOMGenerator(verbose)
-		err = fbomGenerator.SetAdditionalEntryPoints(entryPointList)
-		if err != nil {
-			return fmt.Errorf("failed to set additional entry points: %w", err)
-		}
-
 		mainPackageName := determineMainPackageName(originalDir)
 
-		// Generate FBOM without assessments first to get dependency clusters
-		err = fbomGenerator.Generate(nil, reflectionUsage, callGraph, ssaProgram, mainPackageName)
-		if err != nil {
-			return fmt.Errorf("failed to generate FBOM: %w", err)
-		}
-
-		// Extract dependency clusters from the generated FBOM
-		fbomData := fbomGenerator.GetFBOM()
-		var dependencyClusters []analysis.DependencyCluster
-		for _, cluster := range fbomData.DependencyClusters {
-			var entryPoints []analysis.DependencyEntry
-			for _, ep := range cluster.EntryPoints {
-				entryPoints = append(entryPoints, analysis.DependencyEntry{
-					Function:   ep.Function,
-					CalledFrom: ep.CalledFrom,
-				})
-			}
-
-			dependencyClusters = append(dependencyClusters, analysis.DependencyCluster{
-				Name:             cluster.Name,
-				EntryPoints:      entryPoints,
-				ClusterFunctions: cluster.ClusterFunctions,
-				TotalBlastRadius: cluster.TotalBlastRadius,
-			})
-		}
-
-		// Analyze CVEs with complete context including dependency clusters
-		var assessments []analysis.Assessment
+		// Load CVE data if provided
+		var cveDatabase *cve.CVEDatabase
 		if cveFile != "" {
 			loader := cve.NewLoader(verbose)
 			cveData, err := loader.LoadFromFile(cveFile)
 			if err != nil {
 				return fmt.Errorf("failed to load CVE data: %w", err)
 			}
-
-			engine := analysis.NewEngine(verbose)
-			assessments, _ = engine.AnalyzeAll(&analysis.AnalysisContext{
-				CallGraph:          callGraph,
-				SSAProgram:         ssaProgram,
-				ReflectionUsage:    reflectionUsage,
-				CVEDatabase:        cveData,
-				EntryPoints:        []string{}, // TODO: extract entry points if needed
-				DependencyClusters: dependencyClusters,
-			})
-
-			// Re-generate FBOM with CVE assessments
-			err = fbomGenerator.Generate(assessments, reflectionUsage, callGraph, ssaProgram, mainPackageName)
-			if err != nil {
-				return fmt.Errorf("failed to regenerate FBOM with CVE data: %w", err)
-			}
+			cveDatabase = cveData
 		}
 
+		// Generate FBOM with all data
+		fbomGenerator := output.NewFBOMGenerator(verbose)
+		err = fbomGenerator.SetAdditionalEntryPoints(entryPointList)
+		if err != nil {
+			return fmt.Errorf("failed to set additional entry points: %w", err)
+		}
+
+		err = fbomGenerator.Generate(cveDatabase, reflectionUsage, callGraph, ssaProgram, mainPackageName)
+		if err != nil {
+			return fmt.Errorf("failed to generate FBOM: %w", err)
+		}
 		return nil
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -84,14 +85,16 @@ func NewLoader(verbose bool) *Loader {
 }
 
 // LoadFromFile loads CVE data from a JSON file
-func (l *Loader) LoadFromFile(filepath string) (*CVEDatabase, error) {
+func (l *Loader) LoadFromFile(filePath string) (*CVEDatabase, error) {
 	if l.verbose {
-		fmt.Printf("Loading CVE data from file: %s\n", filepath)
+		fmt.Fprintf(os.Stderr, "Loading CVE data from file: %s\n", filePath)
 	}
 
-	file, err := os.Open(filepath)
+	// Validate and clean the filepath to prevent directory traversal attacks
+	cleanPath := filepath.Clean(filePath)
+	file, err := os.Open(cleanPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open CVE file %s: %w", filepath, err)
+		return nil, fmt.Errorf("failed to open CVE file %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -111,7 +114,7 @@ func (l *Loader) LoadFromReader(reader io.Reader) (*CVEDatabase, error) {
 	}
 
 	if l.verbose {
-		fmt.Printf("Loaded %d CVEs from data source\n", len(database.CVEs))
+		fmt.Fprintf(os.Stderr, "Loaded %d CVEs from data source\n", len(database.CVEs))
 	}
 
 	return &database, nil

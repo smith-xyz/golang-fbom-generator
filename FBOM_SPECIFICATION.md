@@ -373,19 +373,23 @@ Representation of function call relationships.
 ### 7. Security Info Object
 
 #### `security_info` (object, required)
-Security analysis summary and metrics.
+Security analysis summary and vulnerability assessment results.
 
 ```json
 {
-  "total_cves_found": "number",             // Total CVEs identified
-  "critical_cves": "number",                // Critical severity CVEs
-  "high_cves": "number",                    // High severity CVEs  
-  "medium_cves": "number",                  // Medium severity CVEs
-  "low_cves": "number",                     // Low severity CVEs
-  "reflection_calls_count": "number",       // Functions using reflection
-  "total_external_dependencies": "number", // Count of external dependencies
-  "reachable_vulnerabilities": "number",   // CVEs reachable from entry points
-  "analysis_timestamp": "string"           // When analysis was performed
+  "vulnerable_functions": [               // Functions with known CVEs
+    {
+      "function_id": "string",            // Vulnerable function identifier
+      "cves": ["string"],                 // Array of CVE IDs affecting this function
+      "reachability_paths": ["string"],   // Entry points that can reach this function
+      "risk_score": "number",             // Calculated risk score (0-10)
+      "impact": "string"                  // Impact level: critical, high, medium, low
+    }
+  ],
+  "unreachable_vulnerabilities": ["string"], // CVE IDs that are not reachable
+  "reflection_calls_count": "number",         // Count of user functions using reflection
+  "total_cves_found": "number",               // Total CVEs identified in dependencies
+  "total_reachable_cves": "number"            // CVEs reachable from entry points
 }
 ```
 
@@ -529,15 +533,19 @@ Security analysis summary and metrics.
     }
   },
   "security_info": {
+    "vulnerable_functions": [
+      {
+        "function_id": "github.com/example/lib.VulnerableFunc",
+        "cves": ["CVE-2023-1234"],
+        "reachability_paths": ["main", "processRequest"],
+        "risk_score": 7.5,
+        "impact": "high"
+      }
+    ],
+    "unreachable_vulnerabilities": ["CVE-2023-5678"],
+    "reflection_calls_count": 2,
     "total_cves_found": 2,
-    "critical_cves": 0,
-    "high_cves": 1,
-    "medium_cves": 1, 
-    "low_cves": 0,
-    "reflection_calls_count": 1,
-    "total_external_dependencies": 3,
-    "reachable_vulnerabilities": 2,
-    "analysis_timestamp": "2024-01-01T12:00:00Z"
+    "total_reachable_cves": 1
   }
 }
 ```
