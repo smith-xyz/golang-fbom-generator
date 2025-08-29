@@ -1,0 +1,72 @@
+# Configuration for Go FBOM Generator
+
+[packages]
+# Go standard library package patterns
+# These patterns identify packages that are part of the Go standard library
+stdlib_patterns = [
+    "bufio", "bytes", "cmp", "compress", "container", "context", "crypto", "database", "debug", "encoding",
+    "errors", "expvar", "flag", "fmt", "go", "hash", "html", "image",
+    "index", "io", "iter", "log", "maps", "math", "mime", "net", "os", "path", "plugin",
+    "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "sync",
+    "syscall", "testing", "text", "time", "unicode", "unique", "unsafe", "weak"
+]
+
+# Additional standard library prefixes
+# These identify other standard library patterns beyond the main packages
+stdlib_prefixes = [
+    "internal/",
+    "vendor/",
+    "cmd/"
+]
+
+# Third-party dependency hosting patterns
+# These patterns identify external dependencies from common hosting platforms
+dependency_patterns = [
+    "github.com/",
+    "gitlab.com/", 
+    "bitbucket.org/",
+    "golang.org/x/",
+    "google.golang.org/",
+    "gopkg.in/",
+    "go.uber.org/",
+    "k8s.io/",
+    "sigs.k8s.io/",
+    "go.mod",
+    "go.sum"
+]
+
+# Vendor directory patterns
+# These identify vendored dependencies
+vendor_patterns = [
+    "vendor/"
+]
+
+[risk_assessment]
+# High-risk packages for security analysis
+# These packages are considered high-risk due to their potential security implications
+high_risk_packages = [
+    "os/exec",
+    "syscall", 
+    "unsafe",
+    "plugin",
+    "crypto",
+    "encoding/json",
+    "encoding/xml",
+    "google.golang.org/protobuf/encoding/protojson"
+]
+
+# High-risk functions for security analysis
+# These function names are considered high-risk across any package
+high_risk_functions = [
+    "Unmarshal",
+    "Marshal", 
+    "Decode",
+    "Encode",
+    "Execute",
+    "Run",
+    "Open",
+    "Create",
+    "Remove",
+    "Chmod",
+    "Chown"
+]

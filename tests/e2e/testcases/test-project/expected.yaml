@@ -1,0 +1,108 @@
+test_name: "Test Project - Complex Gin and YAML Dependencies"
+description: "Test external dependency tracking with gin web framework and yaml parsing"
+
+expectations:
+  dependencies:
+    - name: "github.com/gin-gonic/gin"
+      version: "v1.9.1"
+      purl_identifier: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+      used_functions: 9
+      called_functions_count: 9
+      called_functions:
+        - function_name: "Default"
+          call_context: "direct"
+        - function_name: "GET"
+          call_context: "direct"
+        - function_name: "POST"
+          call_context: "direct"
+        - function_name: "Run"
+          call_context: "direct"
+        - function_name: "JSON"
+          call_context: "direct"
+      
+    - name: "gopkg.in/yaml.v2"
+      version: "v2.4.0"
+      purl_identifier: "pkg:golang/gopkg.in/yaml.v2@v2.4.0"
+      used_functions: 3
+      called_functions_count: 3
+      called_functions:
+        - function_name: "Unmarshal"
+          call_context: "direct"
+          call_sites_contain: "loadConfig"
+        - function_name: "init"
+          call_context: "direct"
+
+  functions:
+    - name: "loadConfig"
+      has_external_calls: true  # yaml calls are tracked as external calls
+      stdlib_calls_contain: []
+      
+    - name: "main"
+      has_external_calls: true  # gin calls are tracked as external calls
+      stdlib_calls_contain: ["fmt.Println", "fmt.Sprintf"]
+      
+    - name: "setupRoutes"
+      has_external_calls: true
+      external_calls_contain: ["github.com/gin-gonic/gin"]
+
+  security_info:
+    reflection_calls_count: 5
+    external_dependencies_count: 85
+    total_functions_count: 35
+    user_functions_count: 35
+
+  dependency_clusters:
+    - name: "github.com/gin-gonic/gin"
+      min_entry_points: 5
+      min_blast_radius: 50
+      entry_points_contain:
+        - function: "Default"
+        - function: "GET"
+        - function: "POST"
+        - function: "JSON"
+        
+    - name: "gopkg.in/yaml.v2"
+      min_entry_points: 1
+      min_blast_radius: 100
+      entry_points_contain:
+        - function: "Unmarshal"
+          called_from_contains: ["loadConfig"]
+
+assertions:
+  - type: "dependency_exists"
+    name: "github.com/gin-gonic/gin"
+    
+  - type: "dependency_exists"
+    name: "gopkg.in/yaml.v2"
+    
+  - type: "dependency_version"
+    name: "github.com/gin-gonic/gin"
+    expected_version: "v1.9.1"
+    
+  - type: "dependency_version"
+    name: "gopkg.in/yaml.v2"
+    expected_version: "v2.4.0"
+    
+  - type: "dependency_purl"
+    name: "github.com/gin-gonic/gin"
+    expected_purl: "pkg:golang/github.com/gin-gonic/gin@v1.9.1"
+    
+  - type: "dependency_purl"
+    name: "gopkg.in/yaml.v2"
+    expected_purl: "pkg:golang/gopkg.in/yaml.v2@v2.4.0"
+    
+  - type: "function_called"
+    dependency: "github.com/gin-gonic/gin"
+    function: "Default"
+    
+  - type: "function_called"
+    dependency: "gopkg.in/yaml.v2"
+    function: "Unmarshal"
+    
+  - type: "call_context"
+    dependency: "github.com/gin-gonic/gin"
+    function: "JSON"
+    expected_context: "direct"
+    
+  - type: "reflection_detected"
+    min_count: 1

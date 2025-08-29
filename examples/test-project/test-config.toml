@@ -1,0 +1,71 @@
+# Test configuration for customized risk assessment
+
+[packages]
+# Copy the default package patterns
+stdlib_patterns = [
+    "bufio", "bytes", "cmp", "compress", "container", "context", "crypto", "database", "debug", "encoding",
+    "errors", "expvar", "flag", "fmt", "go", "hash", "html", "image",
+    "index", "io", "iter", "log", "maps", "math", "mime", "net", "os", "path", "plugin",
+    "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "sync",
+    "syscall", "testing", "text", "time", "unicode", "unique", "unsafe", "weak"
+]
+
+stdlib_prefixes = [
+    "internal/",
+    "vendor/",
+    "cmd/"
+]
+
+dependency_patterns = [
+    "github.com/",
+    "gitlab.com/", 
+    "bitbucket.org/",
+    "golang.org/x/",
+    "google.golang.org/",
+    "gopkg.in/",
+    "go.uber.org/",
+    "k8s.io/",
+    "sigs.k8s.io/",
+    "go.mod",
+    "go.sum"
+]
+
+vendor_patterns = [
+    "vendor/"
+]
+
+[risk_assessment]
+# Custom high-risk packages for testing
+high_risk_packages = [
+    "os/exec",
+    "syscall", 
+    "unsafe",
+    "plugin",
+    "crypto",
+    "encoding/json",
+    "encoding/xml",
+    "google.golang.org/protobuf/encoding/protojson",
+    # Add some custom ones for testing
+    "net/http",
+    "database/sql"
+]
+
+# Custom high-risk functions for testing
+high_risk_functions = [
+    "Unmarshal",
+    "Marshal", 
+    "Decode",
+    "Encode",
+    "Execute",
+    "Run",
+    "Open",
+    "Create",
+    "Remove",
+    "Chmod",
+    "Chown",
+    # Add some custom ones for testing
+    "Query",
+    "Exec",
+    "Get",
+    "Post"
+]
