@@ -7,7 +7,7 @@ A security-focused Function Bill of Materials (FBOM) generator for Go applicatio
 The golang-fbom-generator analyzes **local Go projects** to create detailed security reports that include:
 
 - **Function Inventory**: All user-defined functions with their call relationships
-- **Dependency Analysis**: External libraries and their usage patterns  
+- **Dependency Analysis**: External libraries and their usage patterns
 - **Dependency Clustering**: Groups reachable functions by dependency with blast radius analysis
 - **Entry Point Mapping**: Application entry points and reachability analysis
 - **Security Assessment**: CVE mapping, vulnerability reachability analysis, and risk scoring
@@ -54,7 +54,7 @@ golang-fbom-generator --auto-discover -v -o
 
 ### Command Line Options
 
-- `-package`: **Local Go package path only** - supports relative paths (`.`, `./subdir`) 
+- `-package`: **Local Go package path only** - supports relative paths (`.`, `./subdir`)
 - `-cve`: Path to CVE data file (JSON) - optional
 - `-live-cve-scan`: Perform live CVE scanning using Go's vulnerability database
 - `-o`: Write output to `<package-name>.fbom.json` file instead of stdout
@@ -62,7 +62,6 @@ golang-fbom-generator --auto-discover -v -o
 - `-entry-points`: Comma-separated list of additional entry point patterns
 - `-algo`: Call graph algorithm to use: `rta`, `cha`, `static`, `vta` (default: "rta")
 - `-auto-discover`: Auto-discover all main functions for unified multi-component analysis
-- `-library`: Library mode - treat current package as user-defined regardless of import path
 - `-max-depth`: Maximum traversal depth for dependency attack paths (default: 3)
 - `-max-edges`: Maximum edges to traverse per node in attack paths (default: 5)
 - `-version`: Show version information
@@ -74,6 +73,7 @@ golang-fbom-generator --auto-discover -v -o
 The tool supports two output modes:
 
 #### Console Output (Default)
+
 By default, FBOM JSON is written to stdout, maintaining backwards compatibility:
 
 ```bash
@@ -81,6 +81,7 @@ golang-fbom-generator -package . > my-project.fbom.json
 ```
 
 #### File Output
+
 Use the `-o` flag to automatically save output to a file named after your package:
 
 ```bash
@@ -89,26 +90,14 @@ golang-fbom-generator -package . -o
 ```
 
 The filename is automatically generated based on:
-1. **Go module name** (preferred): Extracted from `go.mod` 
+
+1. **Go module name** (preferred): Extracted from `go.mod`
 2. **Directory name** (fallback): Current directory name if no module found
 
 Examples:
+
 - Module `github.com/example/my-app` → `my-app.fbom.json`
 - Directory `./examples/hello-world` → `hello-world.fbom.json`
-
-### Library Mode
-
-For analyzing Go libraries themselves, use the `-library` flag:
-
-```bash
-# Analyze a Go library (treats the package functions as user-defined)
-golang-fbom-generator -package . -library
-```
-
-This mode is useful for:
-- Creating FBOMs for libraries to be published alongside the library
-- Analyzing the internal structure of libraries
-- Understanding library-specific attack surfaces
 
 ## Output Format
 
@@ -130,7 +119,7 @@ The tool generates JSON documents following the **Function Bill of Materials (FB
 {
   "fbom_version": "0.1.0",
   "functions": [...],
-  "dependencies": [...], 
+  "dependencies": [...],
   "dependency_clusters": [...],
   "entry_points": [...],
   "call_graph": {...},
@@ -183,6 +172,7 @@ The FBOM includes a `dependency_clusters` section that provides attack surface a
 ```
 
 This enables comprehensive security assessment:
+
 - **Entry Points**: Functions in the dependency called directly by your code
 - **Attack Paths**: Hierarchical visualization of call chains with vulnerability mapping
 - **Vulnerability IDs**: CVEs mapped to specific attack paths for precise impact assessment
@@ -218,12 +208,13 @@ While external packages cannot be directly analyzed, the tool **tracks their usa
 ### Error Messages
 
 If you try to analyze non-local packages, you'll see helpful errors:
+
 ```bash
 # Trying to analyze external package
 golang-fbom-generator -package github.com/gin-gonic/gin
 # Error: external packages are not supported: github.com/gin-gonic/gin
 
-# Trying to analyze standard library  
+# Trying to analyze standard library
 golang-fbom-generator -package fmt
 # Error: standard library packages are not supported: fmt
 ```
@@ -235,7 +226,7 @@ This simplified approach focuses on analyzing **your code** while tracking **ext
 The tool uses a `config.toml` file to define:
 
 - Standard library package patterns
-- Dependency identification patterns  
+- Dependency identification patterns
 - Vendor directory patterns
 - **Risk assessment configuration** - Configurable high-risk packages and functions
 
@@ -248,7 +239,7 @@ You can customize which packages and functions are considered high-risk for secu
 # High-risk packages for security analysis
 high_risk_packages = [
     "os/exec",
-    "syscall", 
+    "syscall",
     "unsafe",
     "plugin",
     "crypto",
@@ -260,7 +251,7 @@ high_risk_packages = [
 # High-risk functions for security analysis
 high_risk_functions = [
     "Unmarshal",
-    "Marshal", 
+    "Marshal",
     "Decode",
     "Encode",
     "Execute",
@@ -293,7 +284,7 @@ golang-fbom-generator -package .
 # Simple program with basic functions
 golang-fbom-generator -package ./examples/hello-world
 
-# Web server with external dependencies  
+# Web server with external dependencies
 golang-fbom-generator -package ./examples/test-project
 
 # Complex application with multiple features
@@ -336,7 +327,7 @@ jq '.security_info' my-project.fbom.json
 jq '.reflection_analysis.summary' my-project.fbom.json
 # {
 #   "total_user_reflection_functions": 5,
-#   "highest_risk_level": "high", 
+#   "highest_risk_level": "high",
 #   "mitigation_priority": "high",
 #   "recommendations": ["Review high-risk reflection usage"]
 # }
@@ -400,24 +391,28 @@ jq '.dependencies[] | {name: .name, used_functions: .used_functions}' fbom.json
 The tool provides comprehensive reflection detection and vulnerability analysis:
 
 #### Reflection Detection
+
 - **Multi-layer Reflection Chains**: Detects complex reflection patterns across multiple function calls and modules
 - **Reflection Usage Detection**: Identifies functions using `reflect.ValueOf()`, `Value.Method()`, `Value.Call()`, `MethodByName()`, etc.
 - **Risk Assessment**: Categorizes reflection usage by complexity (direct, layered, dynamic) and risk level (Low, Medium, High)
 - **Dynamic Call Patterns**: Detects sophisticated scenarios like interface-based dynamic method invocation
 
 #### User-Focused Analysis
-- **User Function Mapping**: Identifies which of *your* functions use reflection and their risk profiles
+
+- **User Function Mapping**: Identifies which of _your_ functions use reflection and their risk profiles
 - **Vulnerability Exposure**: Shows what vulnerable functions your reflection calls can reach
 - **Attack Chain Visualization**: Creates clear step-by-step paths from your code to vulnerable functions
 - **Entry Point Inference**: Automatically identifies likely entry points (HTTP handlers, processors, etc.)
 
 #### Security Impact Assessment
+
 - **CVE Reachability via Reflection**: Detects vulnerabilities only reachable through dynamic reflection calls
 - **Complexity Classification**: Assesses attack chain complexity (direct, layered, dynamic)
 - **Risk Scoring**: Provides 0-10 risk scores for each reflection function based on methods used and targets reached
 - **Mitigation Advice**: Generates specific recommendations for reducing reflection-based attack surface
 
 #### Output Structure
+
 ```json
 {
   "reflection_analysis": {
@@ -465,30 +460,38 @@ The tool provides comprehensive reflection detection and vulnerability analysis:
 The tool supports multiple call graph generation algorithms, each with different precision and performance characteristics:
 
 #### RTA (Rapid Type Analysis) - Default
+
 ```bash
 golang-fbom-generator -package . -algo rta
 ```
+
 - **Best for**: Most use cases, good balance of precision and performance
 - **Characteristics**: Efficient, handles interface calls well, default choice
 
 #### CHA (Class Hierarchy Analysis)
+
 ```bash
 golang-fbom-generator -package . -algo cha
 ```
+
 - **Best for**: Quick analysis, conservative estimates
 - **Characteristics**: Fastest, may include unreachable edges, good for initial analysis
 
 #### Static Analysis
+
 ```bash
 golang-fbom-generator -package . -algo static
 ```
+
 - **Best for**: Basic call relationships without dynamic dispatch
 - **Characteristics**: Simple, only direct calls, limited interface support
 
 #### VTA (Variable Type Analysis)
+
 ```bash
 golang-fbom-generator -package . -algo vta
 ```
+
 - **Best for**: Highest precision analysis
 - **Characteristics**: Most precise, slower execution, best for security-critical analysis
 
@@ -510,7 +513,7 @@ go test ./...
 
 # Run specific test suites
 go test ./pkg/...                    # Unit tests
-go test ./tests/integration/...      # Integration tests  
+go test ./tests/integration/...      # Integration tests
 go test ./tests/bugs/...            # Bug regression tests
 go test ./tests/feature/...         # Feature tests
 go test ./tests/e2e/...             # End-to-end tests
@@ -524,7 +527,7 @@ go test -v ./tests/integration/
 The test suite is organized into focused categories:
 
 - **`pkg/`**: Unit tests for individual packages and components
-- **`tests/bugs/`**: Regression tests for specific bug fixes  
+- **`tests/bugs/`**: Regression tests for specific bug fixes
 - **`tests/feature/`**: Feature-level integration tests
 - **`tests/integration/`**: Full integration tests with real Go code analysis
 - **`tests/e2e/`**: End-to-end tests with example projects
@@ -538,7 +541,7 @@ make quality
 
 # Individual quality checks
 make fmt-check      # Code formatting
-make vet           # Go vet analysis  
+make vet           # Go vet analysis
 make lint          # Linting
 make sec           # Security scanning (gosec)
 
@@ -575,7 +578,7 @@ The tool provides sophisticated CVE analysis capabilities:
 
 ```bash
 # Run CVE analysis on fbom-demo
-cd examples/fbom-demo  
+cd examples/fbom-demo
 golang-fbom-generator -package . -cve ../sample_cves.json -o
 
 # Expected output:
@@ -589,7 +592,7 @@ golang-fbom-generator -package . -cve ../sample_cves.json -o
 The CVE reachability analysis uses an efficient **cluster-based approach**:
 
 1. **Function Matching**: Maps CVE vulnerable functions to call graph functions
-2. **Cluster Lookup**: Checks if vulnerable functions exist in any dependency cluster  
+2. **Cluster Lookup**: Checks if vulnerable functions exist in any dependency cluster
 3. **Entry Point Verification**: Confirms the cluster has entry points from user code
 4. **Risk Assessment**: Calculates risk scores and impact levels
 
@@ -653,7 +656,7 @@ The tool is designed for efficiency:
 ## Limitations
 
 - **Local Packages Only**: Only analyzes local Go packages (not external dependencies or stdlib directly)
-- **Static Analysis Only**: Cannot detect runtime-only vulnerabilities  
+- **Static Analysis Only**: Cannot detect runtime-only vulnerabilities
 - **Go-Specific**: Only analyzes Go source code
 - **Call Graph Precision**: May miss some dynamic calls via reflection or interfaces
 - **CVE Data Dependency**: CVE reachability analysis requires accurate, up-to-date CVE data with correct function names
