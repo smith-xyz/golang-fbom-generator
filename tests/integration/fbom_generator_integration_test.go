@@ -58,7 +58,7 @@ func unusedFunction() {
 	}
 
 	// Create the generator in the context of the temporary module
-	generator := output.NewFBOMGenerator(true, output.DefaultAnalysisConfig())
+	generator := output.NewFBOMGenerator(false, output.DefaultAnalysisConfig()) // Use non-verbose for cleaner test output
 
 	// Generate FBOM with real data
 	reflectionUsage := map[string]*models.Usage{}
@@ -162,7 +162,7 @@ func useReflection(input interface{}) {
 }
 `
 
-	generator := output.NewFBOMGenerator(true, output.DefaultAnalysisConfig())
+	generator := output.NewFBOMGenerator(false, output.DefaultAnalysisConfig()) // Use non-verbose for cleaner test output
 
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
@@ -214,7 +214,7 @@ func vulnerableFunction() {
 }
 `
 
-	generator := output.NewFBOMGenerator(true, output.DefaultAnalysisConfig())
+	generator := output.NewFBOMGenerator(false, output.DefaultAnalysisConfig()) // Use non-verbose for cleaner test output
 
 	callGraph, ssaProgram, err := buildCallGraphFromCode(testCode)
 	if err != nil {
@@ -286,7 +286,7 @@ func userFunction() {
 	}
 
 	// Create generator in the context of the test module
-	generator := output.NewFBOMGenerator(true, output.DefaultAnalysisConfig())
+	generator := output.NewFBOMGenerator(false, output.DefaultAnalysisConfig()) // Use non-verbose for cleaner test output
 
 	reflectionUsage := map[string]*models.Usage{}
 

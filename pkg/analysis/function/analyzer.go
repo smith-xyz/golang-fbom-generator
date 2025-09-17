@@ -3,21 +3,25 @@ package function
 import (
 	"go/types"
 	"log/slog"
+	"runtime"
+	"sync"
 
 	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis/rules"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/analysis/shared"
 	"github.com/smith-xyz/golang-fbom-generator/pkg/models"
+	"github.com/smith-xyz/golang-fbom-generator/pkg/utils"
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
 )
 
 // Analyzer handles function-level analysis and inventory building
 type Analyzer struct {
-	logger         *slog.Logger
-	verbose        bool
-	config         *Config
-	rules          *rules.Rules
-	sharedAnalyzer *shared.SharedAnalyzer
+	logger          *slog.Logger
+	verbose         bool
+	config          *Config
+	rules           *rules.Rules
+	sharedAnalyzer  *shared.SharedAnalyzer
+	instrumentation *utils.Instrumentation
 }
 
 // Config holds configuration for function analysis
@@ -35,103 +39,378 @@ func NewAnalyzer(logger *slog.Logger, config *Config, rules *rules.Rules, shared
 		}
 	}
 	return &Analyzer{
-		logger:         logger,
-		verbose:        config.Verbose,
-		config:         config,
-		rules:          rules,
-		sharedAnalyzer: sharedAnalyzer,
+		logger:          logger,
+		verbose:         config.Verbose,
+		config:          config,
+		rules:           rules,
+		sharedAnalyzer:  sharedAnalyzer,
+		instrumentation: utils.NewInstrumentation(logger, config.Verbose),
 	}
 }
 
 // BuildUserFunctionInventory builds inventory of user-defined functions only
 func (a *Analyzer) BuildUserFunctionInventory(reflectionUsage map[string]*models.Usage, callGraph *callgraph.Graph, ssaProgram *ssa.Program) []models.Function {
-	a.logger.Debug("buildUserFunctionInventory called")
+	tracker := a.instrumentation.NewPhaseTracker("Function Analysis")
 	functionMap := make(map[string]models.Function)
 
 	if callGraph != nil {
-		totalNodes := len(callGraph.Nodes)
-		processedNodes := 0
-		a.logger.Debug("Processing call graph functions", "total_nodes", totalNodes)
+		tracker.StartPhase("Call Graph Analysis")
 
-		for fn := range callGraph.Nodes {
-			processedNodes++
-			if fn == nil {
-				continue
-			}
+		// Performance optimization: Pre-filter user-defined functions
+		var userDefinedFunctions []*ssa.Function
+		_ = a.instrumentation.TimedOperation("Filtering user-defined functions", func() error {
+			userDefinedFunctions = a.filterUserDefinedFunctions(callGraph)
+			totalNodes := len(callGraph.Nodes)
+			userNodes := len(userDefinedFunctions)
+			a.logger.Debug("Filtered functions", "total_nodes", totalNodes, "user_defined_nodes", userNodes)
+			return nil
+		})
 
-			// Use classifier to determine if this is a user-defined function
-			if !a.rules.Classifier.IsUserDefinedFunction(fn) {
-				if a.verbose {
-					pkg := "unknown"
-					if fn.Pkg != nil && fn.Pkg.Pkg != nil {
-						pkg = fn.Pkg.Pkg.Path()
-					}
-					remaining := totalNodes - processedNodes
-					a.logger.Debug("Skipping non-user function", "function", fn.Name(), "package", pkg, "processed", processedNodes, "remaining", remaining)
-				}
-				continue
-			}
-
-			// Build function using rules package utilities
-			functionID := rules.GenerateFunctionID(fn)
-			isReachable := rules.IsFunctionReachable(fn, callGraph)
-			packagePath := rules.GetPackageName(fn)
-
-			function := models.Function{
-				SPDXId:       rules.GenerateSPDXId("Function", fn),
-				Name:         fn.Name(),
-				FullName:     functionID,
-				Package:      packagePath,
-				FilePath:     rules.ExtractFilePath(fn),
-				StartLine:    rules.ExtractStartLine(fn),
-				EndLine:      rules.ExtractEndLine(fn),
-				Signature:    rules.ExtractFunctionSignature(fn),
-				Visibility:   rules.InferVisibility(fn),
-				FunctionType: rules.InferFunctionType(fn),
-				IsExported:   rules.IsFunctionExported(fn),
-				Parameters:   rules.ExtractParameters(fn),
-				ReturnTypes:  rules.ExtractReturnTypes(fn),
-				UsageInfo: models.UsageInfo{
-					IsReachable:         isReachable,
-					ReachabilityType:    rules.DetermineReachabilityType(fn, callGraph, a.rules.Classifier.IsEntryPoint),
-					DistanceFromEntry:   a.CalculateDistanceFromEntry(fn, callGraph),
-					InCriticalPath:      false,
-					HasReflectionAccess: rules.HasReflectionRisk(reflectionUsage[functionID]),
-					IsEntryPoint:        a.rules.Classifier.IsEntryPoint(fn),
-					CVEReferences:       []string{},
-					Calls:               []string{},
-					CalledBy:            []string{},
-				},
-			}
-
-			functionMap[functionID] = function
-		}
+		// Process functions in parallel for better performance
+		_ = a.instrumentation.TimedOperation("Processing functions in parallel", func() error {
+			a.processFunctionsInParallel(userDefinedFunctions, functionMap, callGraph, reflectionUsage)
+			return nil
+		})
 	}
 
 	// Process unreachable functions from SSA program (user-defined packages only)
 	if ssaProgram != nil {
-		a.logger.Debug("Processing unreachable functions from SSA program")
-		for _, pkg := range ssaProgram.AllPackages() {
-			if pkg.Pkg == nil {
-				continue
+		tracker.StartPhase("SSA Analysis (Unreachable Functions)")
+
+		beforeCount := len(functionMap)
+		_ = a.instrumentation.TimedOperation("Processing unreachable functions", func() error {
+			a.processUnreachableFunctionsInParallel(ssaProgram, functionMap, callGraph, reflectionUsage)
+			afterCount := len(functionMap)
+			ssaFunctions := afterCount - beforeCount
+			a.logger.Debug("SSA analysis completed", "additional_functions", ssaFunctions)
+			return nil
+		})
+	}
+
+	// Populate call relationships
+	tracker.StartPhase("Call Relationship Analysis")
+	_ = a.instrumentation.TimedOperation("Populating call relationships", func() error {
+		a.PopulateCallRelationships(functionMap, callGraph)
+		return nil
+	})
+
+	// Convert map to slice
+	functions := make([]models.Function, 0, len(functionMap))
+	for _, function := range functionMap {
+		functions = append(functions, function)
+	}
+
+	tracker.Complete(len(functions))
+	return functions
+}
+
+// filterUserDefinedFunctions creates a pre-filtered slice of user-defined functions from the call graph
+// This optimization avoids calling IsUserDefinedFunction for every node in large call graphs
+func (a *Analyzer) filterUserDefinedFunctions(callGraph *callgraph.Graph) []*ssa.Function {
+	// Always return a valid slice, never nil
+	userFunctions := make([]*ssa.Function, 0)
+
+	if callGraph == nil {
+		return userFunctions
+	}
+
+	totalNodes := len(callGraph.Nodes)
+	processedNodes := 0
+
+	for fn := range callGraph.Nodes {
+		processedNodes++
+		if fn == nil {
+			continue
+		}
+
+		// Use classifier to determine if this is a user-defined function
+		if a.rules.Classifier.IsUserDefinedFunction(fn) {
+			userFunctions = append(userFunctions, fn)
+		} else if a.verbose {
+			pkg := "unknown"
+			if fn.Pkg != nil && fn.Pkg.Pkg != nil {
+				pkg = fn.Pkg.Pkg.Path()
+			}
+			remaining := totalNodes - processedNodes
+			a.logger.Debug("Skipping non-user function", "function", fn.Name(), "package", pkg, "processed", processedNodes, "remaining", remaining)
+		}
+	}
+
+	if a.verbose {
+		a.logger.Debug("Filtered user-defined functions", "user_functions", len(userFunctions), "total_functions", len(callGraph.Nodes))
+	}
+
+	return userFunctions
+}
+
+// processFunctionsInParallel processes user-defined functions in parallel for better performance
+func (a *Analyzer) processFunctionsInParallel(userDefinedFunctions []*ssa.Function, functionMap map[string]models.Function, callGraph *callgraph.Graph, reflectionUsage map[string]*models.Usage) {
+	// MAJOR OPTIMIZATION: Pre-calculate ALL distances and reachability in one pass instead of per-function
+	var allDistances map[string]int
+	var reachabilityCache map[string]bool
+	if a.sharedAnalyzer != nil && callGraph != nil {
+		if a.verbose {
+			a.logger.Debug("Pre-calculating all function distances from entry points")
+		}
+		allDistances = a.sharedAnalyzer.CalculateAllDistancesFromEntryPoints(callGraph)
+
+		// Pre-calculate reachability to avoid redundant calls
+		reachabilityCache = make(map[string]bool)
+		for _, fn := range userDefinedFunctions {
+			functionID := rules.GenerateFunctionID(fn)
+			reachabilityCache[functionID] = rules.IsFunctionReachable(fn, callGraph)
+		}
+
+		if a.verbose {
+			a.logger.Debug("Pre-calculated function metadata", "distances", len(allDistances), "reachability", len(reachabilityCache))
+		}
+	}
+
+	// Determine number of workers based on available CPUs
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(userDefinedFunctions) {
+		numWorkers = len(userDefinedFunctions)
+	}
+
+	// Channel for distributing work
+	functionChan := make(chan *ssa.Function, len(userDefinedFunctions))
+
+	// Channel for collecting results
+	resultChan := make(chan models.Function, len(userDefinedFunctions))
+
+	// WaitGroup to wait for all workers to complete
+	var wg sync.WaitGroup
+
+	progress := a.instrumentation.NewProgressTracker("Processing functions", len(userDefinedFunctions))
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+
+			if a.verbose {
+				a.logger.Debug("Worker started", "worker_id", workerID)
 			}
 
-			packagePath := pkg.Pkg.Path()
-			if a.rules.Classifier.IsStandardLibraryPackage(packagePath) || a.rules.Classifier.IsDependencyPackage(packagePath) {
-				continue
+			processed := 0
+			for fn := range functionChan {
+				if fn == nil {
+					continue
+				}
+
+				processed++
+
+				if a.verbose {
+					a.logger.Debug("Processing function", "worker_id", workerID, "function", fn.Name(), "package", rules.GetPackageName(fn), "progress", processed)
+				}
+
+				// Build function using rules package utilities
+				functionID := rules.GenerateFunctionID(fn)
+				packagePath := rules.GetPackageName(fn)
+
+				// OPTIMIZATION: Use pre-calculated reachability
+				var isReachable bool
+				if reachabilityCache != nil {
+					isReachable = reachabilityCache[functionID]
+				} else {
+					// Fallback to individual calculation if pre-calculation failed
+					isReachable = rules.IsFunctionReachable(fn, callGraph)
+				}
+
+				// OPTIMIZATION: Use pre-calculated distance instead of expensive per-function calculation
+				var distanceFromEntry int = -1
+				if allDistances != nil {
+					if distance, found := allDistances[functionID]; found {
+						distanceFromEntry = distance
+					}
+				} else {
+					// Fallback to individual calculation if pre-calculation failed
+					distanceFromEntry = a.CalculateDistanceFromEntry(fn, callGraph)
+				}
+
+				function := models.Function{
+					SPDXId:       rules.GenerateSPDXId("Function", fn),
+					Name:         fn.Name(),
+					FullName:     functionID,
+					Package:      packagePath,
+					FilePath:     rules.ExtractFilePath(fn),
+					StartLine:    rules.ExtractStartLine(fn),
+					EndLine:      rules.ExtractEndLine(fn),
+					Signature:    rules.ExtractFunctionSignature(fn),
+					Visibility:   rules.InferVisibility(fn),
+					FunctionType: rules.InferFunctionType(fn),
+					IsExported:   rules.IsFunctionExported(fn),
+					Parameters:   rules.ExtractParameters(fn),
+					ReturnTypes:  rules.ExtractReturnTypes(fn),
+					UsageInfo: models.UsageInfo{
+						IsReachable:         isReachable,
+						ReachabilityType:    rules.DetermineReachabilityType(fn, callGraph, a.rules.Classifier.IsEntryPoint),
+						DistanceFromEntry:   distanceFromEntry,
+						InCriticalPath:      false,
+						HasReflectionAccess: rules.HasReflectionRisk(reflectionUsage[functionID]),
+						IsEntryPoint:        a.rules.Classifier.IsEntryPoint(fn),
+						CVEReferences:       []string{},
+						Calls:               []string{},
+						CalledBy:            []string{},
+					},
+				}
+
+				resultChan <- function
+
+				if a.verbose && processed%50 == 0 {
+					a.logger.Debug("Worker batch completed", "worker_id", workerID, "processed", processed)
+				}
 			}
 
-			for _, member := range pkg.Members {
-				if fn, ok := member.(*ssa.Function); ok {
-					functionID := rules.GenerateFunctionID(fn)
+			if a.verbose {
+				a.logger.Debug("Worker completed", "worker_id", workerID, "total_processed", processed)
+			}
+		}(i)
+	}
 
-					// Skip if we already processed this function
-					if _, exists := functionMap[functionID]; exists {
+	// Send all functions to workers
+	go func() {
+		for _, fn := range userDefinedFunctions {
+			functionChan <- fn
+		}
+		close(functionChan)
+	}()
+
+	// Collect results in a separate goroutine
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect all results back into the function map with progress tracking
+	for function := range resultChan {
+		functionMap[function.FullName] = function
+		progress.Update(1)
+	}
+
+	progress.Complete()
+}
+
+// processUnreachableFunctionsInParallel processes unreachable functions from SSA program in parallel
+func (a *Analyzer) processUnreachableFunctionsInParallel(ssaProgram *ssa.Program, functionMap map[string]models.Function, callGraph *callgraph.Graph, reflectionUsage map[string]*models.Usage) {
+	if ssaProgram == nil {
+		return
+	}
+
+	a.logger.Debug("Processing unreachable functions from SSA program")
+
+	// OPTIMIZATION: Pre-filter user-defined packages to avoid processing stdlib/dependencies
+	allPackages := ssaProgram.AllPackages()
+	userPackages := make([]*ssa.Package, 0)
+
+	for _, pkg := range allPackages {
+		if pkg.Pkg == nil {
+			continue
+		}
+
+		packagePath := pkg.Pkg.Path()
+		if a.rules.Classifier.IsStandardLibraryPackage(packagePath) || a.rules.Classifier.IsDependencyPackage(packagePath) {
+			continue
+		}
+
+		userPackages = append(userPackages, pkg)
+	}
+
+	if a.verbose {
+		a.logger.Debug("Filtered SSA packages for parallel processing", "total_packages", len(allPackages), "user_packages", len(userPackages))
+	}
+
+	if len(userPackages) == 0 {
+		return
+	}
+
+	// OPTIMIZATION: Pre-extract all functions from packages for better load balancing
+	var allFunctions []*ssa.Function
+	var allTypes []*ssa.Type
+	packageMap := make(map[*ssa.Function]string) // Track which package each function belongs to
+
+	for _, pkg := range userPackages {
+		if pkg == nil || pkg.Pkg == nil {
+			continue
+		}
+		packagePath := pkg.Pkg.Path()
+
+		for _, member := range pkg.Members {
+			if fn, ok := member.(*ssa.Function); ok {
+				allFunctions = append(allFunctions, fn)
+				packageMap[fn] = packagePath
+			}
+			if typ, ok := member.(*ssa.Type); ok {
+				allTypes = append(allTypes, typ)
+			}
+		}
+	}
+
+	if a.verbose {
+		a.logger.Debug("Pre-extracted functions for load balancing", "packages", len(userPackages), "functions", len(allFunctions), "types", len(allTypes))
+	}
+
+	if len(allFunctions) == 0 && len(allTypes) == 0 {
+		return
+	}
+
+	// Determine number of workers based on available CPUs and total functions
+	numWorkers := runtime.NumCPU()
+	totalWork := len(allFunctions) + len(allTypes)
+	if numWorkers > totalWork {
+		numWorkers = totalWork
+	}
+
+	// Channel for distributing individual functions (better load balancing)
+	functionChan := make(chan *ssa.Function, len(allFunctions))
+	typeChan := make(chan *ssa.Type, len(allTypes))
+
+	// Channel for collecting results
+	resultChan := make(chan models.Function, totalWork*2) // Conservative estimate
+
+	// WaitGroup to wait for all workers to complete
+	var wg sync.WaitGroup
+
+	// Mutex to protect functionMap access (check for existing functions)
+	var mapMutex sync.RWMutex
+
+	ssaProgress := a.instrumentation.NewProgressTracker("Processing SSA functions", totalWork)
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+
+			if a.verbose {
+				a.logger.Debug("SSA worker started", "worker_id", workerID)
+			}
+
+			processed := 0
+			functionsFound := 0
+
+			// Process functions from function channel
+			functionsDone := false
+			typesDone := false
+
+			for !functionsDone || !typesDone {
+				select {
+				case fn, ok := <-functionChan:
+					if !ok {
+						functionsDone = true
 						continue
 					}
 
+					processed++
+					packagePath := packageMap[fn]
+					functionID := rules.GenerateFunctionID(fn)
+
+					if a.verbose && processed%50 == 0 {
+						a.logger.Debug("Processing SSA function", "worker_id", workerID, "function", fn.Name(), "package", packagePath, "progress", processed)
+					}
+
 					// This is an unreachable user-defined function
-					packagePath := rules.GetPackageName(fn)
 					function := models.Function{
 						SPDXId:       rules.GenerateSPDXId("Function", fn),
 						Name:         fn.Name(),
@@ -159,28 +438,93 @@ func (a *Analyzer) BuildUserFunctionInventory(reflectionUsage map[string]*models
 						},
 					}
 
-					functionMap[functionID] = function
-				}
+					resultChan <- function
+					functionsFound++
+					ssaProgress.Update(1)
 
-				// Process methods attached to types
-				if typ, ok := member.(*ssa.Type); ok {
-					a.processMethods(typ, packagePath, functionMap, callGraph, ssaProgram, reflectionUsage)
+				case typ, ok := <-typeChan:
+					if !ok {
+						typesDone = true
+						continue
+					}
+
+					processed++
+
+					// Find the package path for this type
+					var packagePath string
+					for _, pkg := range userPackages {
+						if pkg != nil && pkg.Pkg != nil {
+							for _, member := range pkg.Members {
+								if member == typ {
+									packagePath = pkg.Pkg.Path()
+									break
+								}
+							}
+							if packagePath != "" {
+								break
+							}
+						}
+					}
+
+					if a.verbose && processed%50 == 0 {
+						a.logger.Debug("Processing SSA type", "worker_id", workerID, "type", typ.String(), "package", packagePath, "progress", processed)
+					}
+
+					// Create a temporary map for this worker's methods
+					tempMethodMap := make(map[string]models.Function)
+					a.processMethods(typ, packagePath, tempMethodMap, callGraph, ssaProgram, reflectionUsage)
+
+					// Send all methods found to the result channel
+					for _, method := range tempMethodMap {
+						resultChan <- method
+						functionsFound++
+					}
+					ssaProgress.Update(1)
 				}
 			}
+			if a.verbose {
+				a.logger.Debug("SSA worker completed", "worker_id", workerID, "total_processed", processed, "total_functions_found", functionsFound)
+			}
+		}(i)
+	}
+
+	// Send all functions and types to workers for better load balancing
+	go func() {
+		// Send all functions
+		for _, fn := range allFunctions {
+			functionChan <- fn
 		}
+		close(functionChan)
+
+		// Send all types
+		for _, typ := range allTypes {
+			typeChan <- typ
+		}
+		close(typeChan)
+	}()
+
+	// Collect results in a separate goroutine
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect all results back into the function map with deduplication
+	processedCount := 0
+	duplicateCount := 0
+	for function := range resultChan {
+		// Thread-safe addition to function map with deduplication
+		mapMutex.Lock()
+		if _, exists := functionMap[function.FullName]; !exists {
+			functionMap[function.FullName] = function
+			processedCount++
+		} else {
+			duplicateCount++
+		}
+		mapMutex.Unlock()
 	}
 
-	// Populate call relationships
-	a.PopulateCallRelationships(functionMap, callGraph)
-
-	// Convert map to slice
-	functions := make([]models.Function, 0, len(functionMap))
-	for _, function := range functionMap {
-		functions = append(functions, function)
-	}
-
-	a.logger.Debug("Built user function inventory", "count", len(functions))
-	return functions
+	ssaProgress.Complete()
 }
 
 // processMethods processes methods attached to types

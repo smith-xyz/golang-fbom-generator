@@ -84,10 +84,17 @@ func (a *Analyzer) ExtractDependencies(packages []string, allFunctions []models.
 		}
 	}
 
+	// Cache module versions once to avoid repeated expensive go list calls
+	moduleVersions, err := a.GetModuleVersions()
+	if err != nil {
+		a.logger.Debug("Failed to get module versions using go list", "error", err)
+		moduleVersions = make(map[string]string) // Use empty map as fallback
+	}
+
 	// Build dependencies with enhanced metadata
 	for _, pkg := range packages {
 		if classifier.IsDependencyPackage(pkg) {
-			version := a.extractVersionFromGoMod(pkg)
+			version := a.extractVersionFromCache(pkg, moduleVersions)
 			dep := models.Dependency{
 				Name:           pkg,
 				Version:        version,
@@ -274,14 +281,8 @@ func (a *Analyzer) traverseReachableFunctions(cluster *models.DependencyCluster,
 	}
 }
 
-func (a *Analyzer) extractVersionFromGoMod(packageName string) string {
-	// Get module versions using go list command
-	moduleVersions, err := a.GetModuleVersions()
-	if err != nil {
-		a.logger.Debug("Failed to get module versions using go list", "error", err)
-		return "unknown"
-	}
-
+// extractVersionFromCache looks up version from a pre-loaded module versions cache
+func (a *Analyzer) extractVersionFromCache(packageName string, moduleVersions map[string]string) string {
 	// Extract root package name for lookup
 	rootPackage := a.ExtractRootPackageForVersionLookup(packageName)
 

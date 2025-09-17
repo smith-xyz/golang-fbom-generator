@@ -198,7 +198,7 @@ vet: ## Run go vet
 sec: ## Run security scanner (gosec)
 	@echo "$(BLUE)Running security scanner...$(NC)"
 	@if command -v gosec >/dev/null 2>&1; then \
-		gosec -exclude-dir=examples -exclude-dir=tests/shared ./...; \
+		gosec -quiet -exclude-dir=examples -exclude-dir=tests/shared ./...; \
 		echo "$(GREEN)✅ Security scan completed$(NC)"; \
 	else \
 		echo "$(YELLOW)⚠️  gosec not found, skipping security scan$(NC)"; \
@@ -206,7 +206,7 @@ sec: ## Run security scanner (gosec)
 	fi
 
 .PHONY: quality
-quality: fmt-check vet lint sec ## Run all quality assurance checks
+quality: fmt-check vet lint sec test-all ## Run all quality assurance checks including comprehensive tests
 	@echo "$(GREEN)✅ All quality checks completed$(NC)"
 
 ##@ Cleanup

@@ -18,6 +18,10 @@ type Analyzer struct {
 	verbose               bool
 	config                *Config
 	additionalEntryPoints []string
+	// Performance optimization: Cache function indices by package and function name
+	packageFunctionIndex map[string][]*callgraph.Node
+	functionNameIndex    map[string][]*callgraph.Node // NEW: function name -> nodes index
+	indexedCallGraph     *callgraph.Graph
 }
 
 // Config holds configuration for CVE analysis
@@ -253,34 +257,118 @@ func (a *Analyzer) FindVulnerableFunctions(callGraph *callgraph.Graph, targetCVE
 	return vulnerableNodes
 }
 
-// FindDirectVulnerableFunctions finds directly vulnerable functions in the call graph
-func (a *Analyzer) FindDirectVulnerableFunctions(callGraph *callgraph.Graph, targetCVE models.CVE) []*callgraph.Node {
-	var vulnerableNodes []*callgraph.Node
+// buildPackageIndex creates optimized indices of functions by package and name for faster CVE lookups
+func (a *Analyzer) buildPackageIndex(callGraph *callgraph.Graph) {
+	if callGraph == nil {
+		return
+	}
 
+	// Skip if already indexed for this call graph
+	if a.indexedCallGraph == callGraph && a.packageFunctionIndex != nil && a.functionNameIndex != nil {
+		return
+	}
+
+	if a.verbose {
+		a.logger.Debug("Building optimized function indices", "total_nodes", len(callGraph.Nodes))
+	}
+
+	a.packageFunctionIndex = make(map[string][]*callgraph.Node)
+	a.functionNameIndex = make(map[string][]*callgraph.Node)
+	a.indexedCallGraph = callGraph
+
+	// Build indices: package -> nodes and function name -> nodes
 	for fn, node := range callGraph.Nodes {
 		if fn == nil || node == nil {
 			continue
 		}
 
-		// Check if package information is available
-		if fn.Pkg == nil || fn.Pkg.Pkg == nil {
-			continue
+		// Build package index
+		if fn.Pkg != nil && fn.Pkg.Pkg != nil {
+			packagePath := fn.Pkg.Pkg.Path()
+			a.packageFunctionIndex[packagePath] = append(a.packageFunctionIndex[packagePath], node)
 		}
 
+		// Build function name index (for fast CVE vulnerable function lookups)
 		funcName := fn.Name()
-		packagePath := fn.Pkg.Pkg.Path()
+		a.functionNameIndex[funcName] = append(a.functionNameIndex[funcName], node)
+	}
 
-		// Check if this function matches the vulnerable package and functions
-		if strings.HasPrefix(packagePath, targetCVE.VulnerablePackage) {
-			for _, vulnFunc := range targetCVE.VulnerableFunctions {
-				if strings.Contains(funcName, vulnFunc) {
-					vulnerableNodes = append(vulnerableNodes, node)
-					if a.verbose {
-						a.logger.Debug("Found direct vulnerable function", "function", funcName, "package", packagePath)
+	if a.verbose {
+		a.logger.Debug("Built optimized function indices",
+			"packages", len(a.packageFunctionIndex),
+			"unique_function_names", len(a.functionNameIndex))
+	}
+}
+
+// FindDirectVulnerableFunctions finds directly vulnerable functions using optimized O(1) function name lookups
+func (a *Analyzer) FindDirectVulnerableFunctions(callGraph *callgraph.Graph, targetCVE models.CVE) []*callgraph.Node {
+	var vulnerableNodes []*callgraph.Node
+
+	// OPTIMIZATION: Build both package and function name indices if not already done
+	a.buildPackageIndex(callGraph)
+
+	if a.verbose {
+		a.logger.Debug("Searching for vulnerable functions using optimized indices",
+			"target_package", targetCVE.VulnerablePackage,
+			"vulnerable_functions", targetCVE.VulnerableFunctions,
+			"total_function_names", len(a.functionNameIndex))
+	}
+
+	// SUPER OPTIMIZATION: Direct O(1) lookup by function name instead of O(n³) nested loops
+	for _, vulnFunc := range targetCVE.VulnerableFunctions {
+		// Direct lookup by exact function name
+		if nodes, exists := a.functionNameIndex[vulnFunc]; exists {
+			for _, node := range nodes {
+				if node == nil || node.Func == nil {
+					continue
+				}
+
+				// Verify package matches (additional safety check)
+				if node.Func.Pkg != nil && node.Func.Pkg.Pkg != nil {
+					packagePath := node.Func.Pkg.Pkg.Path()
+					if strings.HasPrefix(packagePath, targetCVE.VulnerablePackage) {
+						vulnerableNodes = append(vulnerableNodes, node)
+						if a.verbose {
+							a.logger.Debug("Found vulnerable function via direct lookup",
+								"function", vulnFunc,
+								"package", packagePath)
+						}
 					}
 				}
 			}
 		}
+
+		// FALLBACK: If no exact match, do substring search in function names
+		// (This covers cases where CVE function names are partial matches)
+		for funcName, nodes := range a.functionNameIndex {
+			if strings.Contains(funcName, vulnFunc) && funcName != vulnFunc {
+				for _, node := range nodes {
+					if node == nil || node.Func == nil {
+						continue
+					}
+
+					// Verify package matches
+					if node.Func.Pkg != nil && node.Func.Pkg.Pkg != nil {
+						packagePath := node.Func.Pkg.Pkg.Path()
+						if strings.HasPrefix(packagePath, targetCVE.VulnerablePackage) {
+							vulnerableNodes = append(vulnerableNodes, node)
+							if a.verbose {
+								a.logger.Debug("Found vulnerable function via substring match",
+									"searched_for", vulnFunc,
+									"found_function", funcName,
+									"package", packagePath)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if a.verbose {
+		a.logger.Debug("Vulnerable function search completed",
+			"cve_id", targetCVE.ID,
+			"found_nodes", len(vulnerableNodes))
 	}
 
 	return vulnerableNodes

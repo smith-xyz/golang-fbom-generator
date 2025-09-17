@@ -11,7 +11,7 @@ import (
 // Integration tests for entry point detection and configuration
 
 func TestEntryPointDetectionIntegration(t *testing.T) {
-	generator := output.NewFBOMGenerator(true, output.DefaultAnalysisConfig())
+	generator := output.NewFBOMGenerator(false, output.DefaultAnalysisConfig()) // Use non-verbose for cleaner test output
 
 	tests := []struct {
 		name                  string

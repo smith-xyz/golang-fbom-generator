@@ -12,6 +12,10 @@ import (
 type DataPopulator struct {
 	logger  *slog.Logger
 	verbose bool
+	// Performance optimization: Pre-built lookup indices
+	functionNameIndex   map[string][]*models.Function // name -> functions with that name
+	functionSuffixIndex map[string][]*models.Function // suffix -> functions ending with that suffix
+	indexedFunctions    map[string]*models.Function   // Tracks which function map was indexed
 }
 
 // NewDataPopulator creates a new data populator
@@ -335,7 +339,48 @@ func (d *DataPopulator) findFunctionInMaps(name string, fullNameMap map[string]*
 	return d.findBestUserFunctionMatch(name, fullNameMap, shortNameMap)
 }
 
-// findBestUserFunctionMatch finds the best matching user function for a given name
+// buildFunctionIndices creates optimized lookup indices for faster function matching
+func (d *DataPopulator) buildFunctionIndices(fullNameMap map[string]*models.Function) {
+	// Skip if already indexed for this function map
+	if d.indexedFunctions != nil && len(d.indexedFunctions) == len(fullNameMap) {
+		// Quick check if it's the same map
+		for k, v := range fullNameMap {
+			if existing, exists := d.indexedFunctions[k]; !exists || existing != v {
+				break // Different map, need to rebuild
+			}
+			return // Same map, indices are still valid
+		}
+	}
+
+	if d.verbose {
+		d.logger.Debug("Building function lookup indices", "total_functions", len(fullNameMap))
+	}
+
+	d.functionNameIndex = make(map[string][]*models.Function)
+	d.functionSuffixIndex = make(map[string][]*models.Function)
+	d.indexedFunctions = make(map[string]*models.Function)
+
+	// Build indices for fast lookups
+	for k, fn := range fullNameMap {
+		d.indexedFunctions[k] = fn
+
+		// Index by function name
+		d.functionNameIndex[fn.Name] = append(d.functionNameIndex[fn.Name], fn)
+
+		// Index by suffixes (for partial matching)
+		name := fn.Name
+		for i := 1; i <= len(name) && i <= 10; i++ { // Limit suffix length to avoid excessive memory
+			suffix := name[len(name)-i:]
+			d.functionSuffixIndex[suffix] = append(d.functionSuffixIndex[suffix], fn)
+		}
+	}
+
+	if d.verbose {
+		d.logger.Debug("Function lookup indices built", "name_entries", len(d.functionNameIndex), "suffix_entries", len(d.functionSuffixIndex))
+	}
+}
+
+// findBestUserFunctionMatch finds the best matching user function for a given name using optimized indices
 func (d *DataPopulator) findBestUserFunctionMatch(name string, fullNameMap map[string]*models.Function, shortNameMap map[string]*models.Function) *models.Function {
 	// First try exact short name match (most common case)
 	if fn, exists := shortNameMap[name]; exists {
@@ -345,40 +390,49 @@ func (d *DataPopulator) findBestUserFunctionMatch(name string, fullNameMap map[s
 		return fn
 	}
 
-	// Strategy: Look for functions where the name appears in the full name
-	// This handles cases where call paths reference external functions that we don't track
-	var candidates []*models.Function
+	// OPTIMIZATION: Build indices if not already done
+	d.buildFunctionIndices(fullNameMap)
 
-	for _, fn := range fullNameMap {
-		// Check if the short name matches
-		if fn.Name == name {
-			candidates = append(candidates, fn)
-		}
-		// Also check if the name appears as a suffix (e.g., "parseHTML" matches "HTML")
-		if strings.HasSuffix(fn.Name, name) {
-			candidates = append(candidates, fn)
+	// OPTIMIZATION: Use name index for exact name matches
+	if candidates, exists := d.functionNameIndex[name]; exists {
+		if len(candidates) == 1 {
+			if d.verbose {
+				d.logger.Debug("Found single name index match", "name", name, "matched", candidates[0].FullName)
+			}
+			return candidates[0]
+		} else if len(candidates) > 1 {
+			if d.verbose {
+				var candidateNames []string
+				for _, c := range candidates {
+					candidateNames = append(candidateNames, c.FullName)
+				}
+				d.logger.Debug("Multiple name candidates found, returning first", "name", name, "candidates", candidateNames)
+			}
+			return candidates[0]
 		}
 	}
 
-	if len(candidates) == 1 {
-		if d.verbose {
-			d.logger.Debug("Found single candidate match", "name", name, "matched", candidates[0].FullName)
-		}
-		return candidates[0]
-	} else if len(candidates) > 1 {
-		if d.verbose {
-			var candidateNames []string
-			for _, c := range candidates {
-				candidateNames = append(candidateNames, c.FullName)
+	// OPTIMIZATION: Use suffix index for partial matches
+	if candidates, exists := d.functionSuffixIndex[name]; exists {
+		if len(candidates) == 1 {
+			if d.verbose {
+				d.logger.Debug("Found single suffix match", "name", name, "matched", candidates[0].FullName)
 			}
-			d.logger.Debug("Multiple candidates found, returning first", "name", name, "candidates", candidateNames)
+			return candidates[0]
+		} else if len(candidates) > 1 {
+			if d.verbose {
+				var candidateNames []string
+				for _, c := range candidates {
+					candidateNames = append(candidateNames, c.FullName)
+				}
+				d.logger.Debug("Multiple suffix candidates found, returning first", "name", name, "candidates", candidateNames)
+			}
+			return candidates[0]
 		}
-		// Return the first candidate, but log the ambiguity
-		return candidates[0]
 	}
 
 	if d.verbose {
-		d.logger.Debug("No function match found", "name", name)
+		d.logger.Debug("No function match found in indices", "name", name)
 	}
 	return nil
 }
